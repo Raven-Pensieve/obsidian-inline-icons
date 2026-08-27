@@ -38,7 +38,7 @@ export class I18n {
 
 	/**
 	 * 获取翻译函数对象
-	 * 可通过 LL.common.confirm() 的方式调用
+	 * 可通过 LL.ui.sourceBuiltin() 的方式调用
 	 */
 	public get L(): TranslationFunctions {
 		return this.LL;

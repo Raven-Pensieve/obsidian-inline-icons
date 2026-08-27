@@ -112,7 +112,6 @@ function buildDecorations(
 	plugin: InlineIconsPlugin,
 	view: EditorView,
 ): DecorationSet {
-	if (!plugin.settings.render.livePreview) return Decoration.none;
 	// 源码模式：原样显示记号
 	if (!view.state.field(editorLivePreviewField)) return Decoration.none;
 

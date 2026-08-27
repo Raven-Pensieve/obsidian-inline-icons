@@ -15,40 +15,6 @@ export type Translation = RootTranslation
 export type Translations = RootTranslation
 
 type RootTranslation = {
-	common: {
-		/**
-		 * 添​加
-		 */
-		add: string
-		/**
-		 * 删​除
-		 */
-		'delete': string
-		/**
-		 * 重​置
-		 */
-		reset: string
-		/**
-		 * 保​存
-		 */
-		save: string
-		/**
-		 * 取​消
-		 */
-		cancel: string
-		/**
-		 * 确​定
-		 */
-		confirm: string
-		/**
-		 * 上​移
-		 */
-		moveUp: string
-		/**
-		 * 下​移
-		 */
-		moveDown: string
-	}
 	settings: {
 		syntax: {
 			/**
@@ -56,7 +22,7 @@ type RootTranslation = {
 			 */
 			name: string
 			/**
-			 * 记​号​长​什​么​样​，​以​及​是​否​渲​染​裸​形​式
+			 * 记​号​长​什​么​样
 			 */
 			desc: string
 			prefix: {
@@ -72,46 +38,6 @@ type RootTranslation = {
 				 * 只​能​用​字​母​、​数​字​、​下​划​线​与​连​字​符​，​长​度​ ​1​-​1​6
 				 */
 				invalid: string
-			}
-			renderBareToken: {
-				/**
-				 * 渲​染​裸​形​式
-				 */
-				name: string
-				/**
-				 * 连​正​文​里​没​有​反​引​号​的​ ​i​c​o​n​:​s​u​n​ ​也​渲​染​。​它​会​与​正​文​文​字​抢​记​号​（​i​c​o​n​:​s​u​n​n​y​ ​会​整​段​当​成​名​字​）​，​默​认​关​闭
-				 */
-				desc: string
-			}
-		}
-		render: {
-			/**
-			 * 渲​染
-			 */
-			name: string
-			/**
-			 * 两​条​渲​染​管​线​各​自​的​开​关
-			 */
-			desc: string
-			readingMode: {
-				/**
-				 * 阅​读​模​式
-				 */
-				name: string
-				/**
-				 * 在​阅​读​模​式​、​内​嵌​与​悬​浮​预​览​里​渲​染​记​号
-				 */
-				desc: string
-			}
-			livePreview: {
-				/**
-				 * 实​时​预​览
-				 */
-				name: string
-				/**
-				 * 在​实​时​预​览​里​渲​染​记​号​；​光​标​移​进​记​号​时​会​露​出​原​文​。​源​码​模​式​一​律​只​显​示​原​文
-				 */
-				desc: string
 			}
 		}
 		suggest: {
@@ -129,7 +55,7 @@ type RootTranslation = {
 				 */
 				name: string
 				/**
-				 * 敲​前​缀​或​输​入​别​名​时​弹​出​图​标​候​选​，​回​车​整​段​写​入​含​反​引​号​的​记​号
+				 * 敲​前​缀​或​输​入​别​名​时​弹​出​图​标​候​选​，​回​车​整​段​写​入​含​反​引​号​的​记​号​。​关​掉​后​仍​可​用​「​插​入​图​标​」​命​令
 				 */
 				desc: string
 			}
@@ -139,7 +65,7 @@ type RootTranslation = {
 				 */
 				name: string
 				/**
-				 * 敲​「​别​名​ ​+​ ​冒​号​ ​+​ ​几​个​字​母​」​就​能​弹​出​候​选​。​这​个​别​名​只​存​在​于​补​全​里​，​不​会​写​进​文​件
+				 * 敲​「​别​名​ ​+​ ​冒​号​」​就​能​弹​出​候​选​。​这​个​别​名​只​存​在​于​补​全​里​，​不​会​写​进​文​件
 				 */
 				desc: string
 				/**
@@ -147,30 +73,6 @@ type RootTranslation = {
 				 */
 				invalid: string
 			}
-			maxResults: {
-				/**
-				 * 候​选​数​量​上​限
-				 */
-				name: string
-				/**
-				 * 装​了​图​标​包​后​可​选​图​标​可​达​上​万​个​，​列​表​要​截​断
-				 */
-				desc: string
-			}
-		}
-		reset: {
-			/**
-			 * 重​置​全​部​设​置
-			 */
-			name: string
-			/**
-			 * 把​所​有​设​置​恢​复​为​默​认​值
-			 */
-			desc: string
-			/**
-			 * 重​置
-			 */
-			button: string
 		}
 	}
 	ui: {
@@ -209,40 +111,6 @@ type RootTranslation = {
 }
 
 export type TranslationFunctions = {
-	common: {
-		/**
-		 * 添加
-		 */
-		add: () => LocalizedString
-		/**
-		 * 删除
-		 */
-		'delete': () => LocalizedString
-		/**
-		 * 重置
-		 */
-		reset: () => LocalizedString
-		/**
-		 * 保存
-		 */
-		save: () => LocalizedString
-		/**
-		 * 取消
-		 */
-		cancel: () => LocalizedString
-		/**
-		 * 确定
-		 */
-		confirm: () => LocalizedString
-		/**
-		 * 上移
-		 */
-		moveUp: () => LocalizedString
-		/**
-		 * 下移
-		 */
-		moveDown: () => LocalizedString
-	}
 	settings: {
 		syntax: {
 			/**
@@ -250,7 +118,7 @@ export type TranslationFunctions = {
 			 */
 			name: () => LocalizedString
 			/**
-			 * 记号长什么样，以及是否渲染裸形式
+			 * 记号长什么样
 			 */
 			desc: () => LocalizedString
 			prefix: {
@@ -266,46 +134,6 @@ export type TranslationFunctions = {
 				 * 只能用字母、数字、下划线与连字符，长度 1-16
 				 */
 				invalid: () => LocalizedString
-			}
-			renderBareToken: {
-				/**
-				 * 渲染裸形式
-				 */
-				name: () => LocalizedString
-				/**
-				 * 连正文里没有反引号的 icon:sun 也渲染。它会与正文文字抢记号（icon:sunny 会整段当成名字），默认关闭
-				 */
-				desc: () => LocalizedString
-			}
-		}
-		render: {
-			/**
-			 * 渲染
-			 */
-			name: () => LocalizedString
-			/**
-			 * 两条渲染管线各自的开关
-			 */
-			desc: () => LocalizedString
-			readingMode: {
-				/**
-				 * 阅读模式
-				 */
-				name: () => LocalizedString
-				/**
-				 * 在阅读模式、内嵌与悬浮预览里渲染记号
-				 */
-				desc: () => LocalizedString
-			}
-			livePreview: {
-				/**
-				 * 实时预览
-				 */
-				name: () => LocalizedString
-				/**
-				 * 在实时预览里渲染记号；光标移进记号时会露出原文。源码模式一律只显示原文
-				 */
-				desc: () => LocalizedString
 			}
 		}
 		suggest: {
@@ -323,7 +151,7 @@ export type TranslationFunctions = {
 				 */
 				name: () => LocalizedString
 				/**
-				 * 敲前缀或输入别名时弹出图标候选，回车整段写入含反引号的记号
+				 * 敲前缀或输入别名时弹出图标候选，回车整段写入含反引号的记号。关掉后仍可用「插入图标」命令
 				 */
 				desc: () => LocalizedString
 			}
@@ -333,7 +161,7 @@ export type TranslationFunctions = {
 				 */
 				name: () => LocalizedString
 				/**
-				 * 敲「别名 + 冒号 + 几个字母」就能弹出候选。这个别名只存在于补全里，不会写进文件
+				 * 敲「别名 + 冒号」就能弹出候选。这个别名只存在于补全里，不会写进文件
 				 */
 				desc: () => LocalizedString
 				/**
@@ -341,30 +169,6 @@ export type TranslationFunctions = {
 				 */
 				invalid: () => LocalizedString
 			}
-			maxResults: {
-				/**
-				 * 候选数量上限
-				 */
-				name: () => LocalizedString
-				/**
-				 * 装了图标包后可选图标可达上万个，列表要截断
-				 */
-				desc: () => LocalizedString
-			}
-		}
-		reset: {
-			/**
-			 * 重置全部设置
-			 */
-			name: () => LocalizedString
-			/**
-			 * 把所有设置恢复为默认值
-			 */
-			desc: () => LocalizedString
-			/**
-			 * 重置
-			 */
-			button: () => LocalizedString
 		}
 	}
 	ui: {

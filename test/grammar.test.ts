@@ -5,7 +5,6 @@ import {
 	formatTokenBody,
 	normalizePrefix,
 	parseTokenBody,
-	scanBareTokens,
 } from "../src/syntax/grammar";
 
 describe("parseTokenBody", () => {
@@ -178,53 +177,5 @@ describe("formatTokenBody / formatCodeSpan", () => {
 			expect(token).not.toBeNull();
 			expect(formatTokenBody(token!)).toBe(body);
 		}
-	});
-});
-
-describe("scanBareTokens（默认关闭的逃生开关）", () => {
-	it("命中正文里的裸记号并给出位置", () => {
-		const text = "今天 icon:sun 很好";
-		expect(scanBareTokens(text)).toEqual([
-			{
-				start: 3,
-				end: 11,
-				raw: "icon:sun",
-				token: { source: null, name: "sun", modifiers: [] },
-			},
-		]);
-	});
-
-	it("一行里多个记号都命中", () => {
-		expect(scanBareTokens("icon:sun 和 icon:mdi:home").map((m) => m.raw))
-			.toEqual(["icon:sun", "icon:mdi:home"]);
-	});
-
-	it("尾随标点不吃进名字", () => {
-		expect(scanBareTokens("提醒我 icon:alarm-clock。")[0]).toMatchObject({
-			raw: "icon:alarm-clock",
-		});
-	});
-
-	it("左边界：贴着名字字符或反引号时不命中", () => {
-		expect(scanBareTokens("myicon:sun")).toEqual([]);
-		expect(scanBareTokens("`icon:sun`")).toEqual([]);
-		expect(scanBareTokens("a:icon:sun")).toEqual([]);
-	});
-
-	it("C1 的已知代价：icon:sunny 整段当成名字 sunny", () => {
-		expect(scanBareTokens("icon:sunny")[0].token.name).toBe("sunny");
-	});
-
-	it("中文 id：有空格分隔时能命中", () => {
-		expect(scanBareTokens("看这个 icon:CI-我的图标 好看")[0]).toMatchObject({
-			raw: "icon:CI-我的图标",
-		});
-	});
-
-	it("中文语境下裸形式本就不可靠（这也是它默认关闭的原因）", () => {
-		// 紧贴中文时不命中：左边界要求前一个字符不是字母/数字
-		expect(scanBareTokens("看这个icon:CI-我的图标")).toEqual([]);
-		// 命中时也会把后面的中文一起吃进 id
-		expect(scanBareTokens("看 icon:sun很好")[0].token.name).toBe("sun很好");
 	});
 });
