@@ -35,7 +35,24 @@ Shorthands are accepted too (the plugin tries `<name>`, then `lucide-<name>`, th
 - The `icon` prefix is configurable.
 - An unknown name **keeps the original text** rather than rendering a blank box, so a typo is visible.
 - To show a token without rendering it, wrap it in double backticks: ``` ``` `icon:sun` ``` ```.
-- Only the code-span form renders. Bare `icon:sun` in prose is left alone by default (there is an opt-in escape hatch in the settings).
+- Only the code-span form renders. Bare `icon:sun` in prose is always left alone.
+
+### Colour and size
+
+Append modifiers after a comma, **in any order**:
+
+```md
+`icon:lucide-sun,1.5em`           1.5× the surrounding font size
+`icon:lucide-sun,#e5a50a`         a specific colour
+`icon:lucide-sun,1.5em,red`       both
+`icon:lucide-sun,--text-accent`   a theme variable, so it follows light/dark mode
+```
+
+- **Size**: `1.5em` / `20px` / `1rem` / `12pt` / `2ch` / `3ex` — **the unit is required**. Defaults to `1em`, i.e. the surrounding font size.
+- **Colour**: hex (`#e5a50a`), CSS colour names (`red`), space-separated colour functions (`rgb(255 0 0)`, `oklch(0.7 0.1 60)`),
+  and theme variables (`--text-accent`, or spelled out as `var(--text-accent)`). Defaults to the surrounding text colour.
+- An unrecognised modifier is **simply ignored** — a typo in the colour never makes the whole token fall back to plain text.
+- The comma is the separator, so the comma form `rgb(1,2,3)` cannot be used; write `rgb(1 2 3)` or hex instead.
 
 Typing it does **not** require typing backticks: type `i:su`, pick from the suggester, and the plugin writes `` `icon:sun` `` including the pair of backticks. There is also a command (bind your own hotkey) that opens a fuzzy search over every available icon.
 

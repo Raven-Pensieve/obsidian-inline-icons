@@ -85,11 +85,17 @@ class IconWidget extends WidgetType {
 		super();
 	}
 
+	/**
+	 * **修饰符也要参与比较**：它们决定 DOM 上那两个 CSS 变量，
+	 * 漏掉的话把 `,1.5em` 改成 `,2em` 后 widget 会被判定为「没变」而原样复用，
+	 * 于是尺寸不跟着动——记号明明改了却看不出效果。
+	 */
 	eq(other: IconWidget): boolean {
 		return (
 			other.iconId === this.iconId &&
 			other.token.source === this.token.source &&
-			other.token.name === this.token.name
+			other.token.name === this.token.name &&
+			sameModifiers(other.token.modifiers, this.token.modifiers)
 		);
 	}
 
@@ -106,6 +112,11 @@ class IconWidget extends WidgetType {
 	ignoreEvent(): boolean {
 		return false;
 	}
+}
+
+/** 逐段比较修饰符。数组短、绝大多数是空的，不值得为它建 Set 或拼字符串。 */
+function sameModifiers(a: readonly string[], b: readonly string[]): boolean {
+	return a.length === b.length && a.every((value, i) => value === b[i]);
 }
 
 function buildDecorations(
