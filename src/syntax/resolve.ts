@@ -93,6 +93,18 @@ function collectByPrefix(
 export type IconIdProvider = () => string[];
 
 /**
+ * 「注册表里没有，但 Custom Icons 的 `api.renderTo` 画得出来」的探测器。
+ *
+ * 现实中只有一类图标落在这里：Custom Icons bundle 里的 `lucide-react` 比 Obsidian
+ * 内置多出来的那批（契约里 `renderable: "api"` 那一档）。它们**不在注册表**，
+ * 公共 `setIcon` 画不出来。
+ *
+ * 生产环境传 `(id) => getCustomIconsApi(app)?.has(id) ?? false`；
+ * 不传（或提供方不在场）时整档消失，解析链退化成纯注册表查询。
+ */
+export type ExtraIconProbe = (id: string) => boolean;
+
+/**
  * 解析器。
  *
  * **必须缓存**：同一个记号在渲染热路径上会被反复解析。
@@ -100,6 +112,8 @@ export type IconIdProvider = () => string[];
  */
 export class IconResolver {
 	readonly #getIconIds: IconIdProvider;
+
+	readonly #hasExtra: ExtraIconProbe;
 
 	/** 注册表快照，惰性建立。 */
 	#ids: Set<string> | null = null;
@@ -110,8 +124,9 @@ export class IconResolver {
 	/** `source|name` → 命中的 id（`null` 表示确认解析不出来，同样要缓存）。 */
 	readonly #cache = new Map<string, string | null>();
 
-	constructor(getIconIds: IconIdProvider) {
+	constructor(getIconIds: IconIdProvider, hasExtra: ExtraIconProbe = () => false) {
 		this.#getIconIds = getIconIds;
+		this.#hasExtra = hasExtra;
 	}
 
 	/** 丢掉注册表快照与解析缓存。注册表可能变化时都要调。 */
@@ -180,9 +195,20 @@ export class IconResolver {
 	 *
 	 * 用户在补全里写过的来源段（`icon:ci:`）**不会**被带进文件——来源段只是输入期
 	 * 用来收窄候选池的工具。
+	 *
+	 * @param modifiers 可选的修饰符段（颜色 / 尺寸）。给了就跟在 id 后面：
+	 *   `` `icon:lucide-sun,#e5a50a` ``。图标选择器那条路径用它落地用户选的颜色；
+	 *   补全不传——它只负责选图标，没有颜色控件。
 	 */
-	tokenFor(id: string, options: GrammarOptions = {}): string {
-		return formatCodeSpan({ source: null, name: id, modifiers: [] }, options);
+	tokenFor(
+		id: string,
+		options: GrammarOptions = {},
+		modifiers: readonly string[] = [],
+	): string {
+		return formatCodeSpan(
+			{ source: null, name: id, modifiers: [...modifiers] },
+			options,
+		);
 	}
 
 	/** 一个 id 来自哪里，供补全分组显示。 */
@@ -270,10 +296,21 @@ export class IconResolver {
 			}));
 	}
 
+	/**
+	 * 逐个候选试，**注册表整体先于 API 档**。
+	 *
+	 * 两遍扫描而不是一遍里各查两次：注册表里的 id 用公共 `setIcon` 就能画，
+	 * Custom Icons 被禁用也不受影响；API 档只有提供方在场时画得出来。
+	 * 所以哪怕 API 档的候选排在前面（`icon:lucide:sun` 的 `lucide-sun`），
+	 * 也该优先给注册表里那个——否则一个本来稳定的记号会平白依赖上提供方。
+	 */
 	#first(candidates: readonly string[]): string | null {
 		const ids = this.#idSet();
 		for (const candidate of candidates) {
 			if (ids.has(candidate)) return candidate;
+		}
+		for (const candidate of candidates) {
+			if (this.#hasExtra(candidate)) return candidate;
 		}
 		return null;
 	}

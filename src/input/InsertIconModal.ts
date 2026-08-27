@@ -42,7 +42,7 @@ export class InsertIconModal extends FuzzySuggestModal<IconCandidate> {
 	}
 
 	renderSuggestion(match: FuzzyMatch<IconCandidate>, el: HTMLElement): void {
-		renderIconSuggestion(match.item, el);
+		renderIconSuggestion(this.#plugin, match.item, el);
 	}
 
 	onChooseItem(item: IconCandidate): void {

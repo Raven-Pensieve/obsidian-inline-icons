@@ -29,11 +29,17 @@ const zh_TW = {
 		unresolved: "找不到圖示「{name}」",
 		sourceBuiltin: "Obsidian 內建",
 		sourceCustomIcons: "Custom Icons",
+		sourceUserSvg: "我的 SVG",
 	},
 	commands: {
 		insertIcon: {
 			name: "插入圖示",
 			placeholder: "搜尋圖示…",
+		},
+		pickIcon: {
+			name: "從圖示庫插入圖示",
+			unavailable: "未啟用 Custom Icons，改用內建的圖示搜尋",
+			unreferenceable: "id「{id}」含冒號、逗號或反引號，寫不進記號",
 		},
 		reapply: {
 			name: "重新渲染本文件的圖示",

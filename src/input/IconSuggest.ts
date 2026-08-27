@@ -82,7 +82,7 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 	}
 
 	renderSuggestion(value: IconCandidate, el: HTMLElement): void {
-		renderIconSuggestion(value, el);
+		renderIconSuggestion(this.#plugin, value, el);
 	}
 
 	/**

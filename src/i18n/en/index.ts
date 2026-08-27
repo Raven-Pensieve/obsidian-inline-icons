@@ -29,11 +29,17 @@ const en = {
 		unresolved: "No icon named \"{name}\"",
 		sourceBuiltin: "Built-in",
 		sourceCustomIcons: "Custom Icons",
+		sourceUserSvg: "My SVGs",
 	},
 	commands: {
 		insertIcon: {
 			name: "Insert icon",
 			placeholder: "Search icons…",
+		},
+		pickIcon: {
+			name: "Insert icon from the icon library",
+			unavailable: "Custom Icons is not enabled — falling back to the built-in icon search",
+			unreferenceable: "The id \"{id}\" contains a colon, comma or backtick, so it cannot be written into a token",
 		},
 		reapply: {
 			name: "Re-render icons in this note",

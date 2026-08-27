@@ -15,7 +15,11 @@ import {
 } from "@codemirror/view";
 import type { SyntaxNodeRef } from "@lezer/common";
 import type InlineIconsPlugin from "@src/main";
-import { parseTokenBody, type IconToken } from "@src/syntax/grammar";
+import {
+	formatTokenBody,
+	parseTokenBody,
+	type IconToken,
+} from "@src/syntax/grammar";
 import { editorLivePreviewField } from "obsidian";
 import { createIconEl, UNRESOLVED_CLASS } from "./renderIcon";
 
@@ -99,13 +103,23 @@ class IconWidget extends WidgetType {
 		);
 	}
 
+	/**
+	 * 画不出来时**回落成原文那段代码**，而不是留一个空 span。
+	 *
+	 * `buildDecorations` 已经问过解析链了，所以走到这里还失败只可能是竞态——
+	 * 图标刚被删 / 包刚被停用，而变更事件还没把缓存冲掉。CM6 的 `toDOM` 必须
+	 * 返回一个元素（没有「这处不装饰」的退路，那个判断在 builder 那一层），
+	 * 于是这里自己把原文重建出来，与阅读模式那条管线的表现对齐。
+	 */
 	toDOM(view: EditorView): HTMLElement {
-		return createIconEl(
-			view.dom.ownerDocument,
-			this.iconId,
-			this.token,
-			this.plugin.grammarOptions,
-		);
+		const doc = view.dom.ownerDocument;
+		const el = createIconEl(this.plugin, doc, this.iconId, this.token);
+		if (el) return el;
+
+		return doc.win.createSpan({
+			cls: UNRESOLVED_CLASS,
+			text: `\`${formatTokenBody(this.token, this.plugin.grammarOptions)}\``,
+		});
 	}
 
 	/** 返回 false：点击落回编辑器，光标能定位进记号，于是原文露出来可改。 */
