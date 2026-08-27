@@ -11,15 +11,26 @@
 
 ## 语法
 
-记号就是一段普通的行内代码，所以即便插件被禁用或卸载，笔记依然是可读的：
+记号就是一段普通的行内代码，所以即便插件被禁用或卸载，笔记依然是可读的。**写进文件的是真实的图标 id，一字不改：**
 
 ```md
-今天天气 `icon:sun` 很好，记得 `icon:alarm-clock` 九点提醒我。
+今天天气 `icon:lucide-sun` 很好，记得 `icon:lucide-alarm-clock` 九点提醒我。
 
-`icon:sun`            自动解析（内置 Lucide → Custom Icons 的 SVG → 图标包）
-`icon:lucide:sun`     钉死 Lucide
-`icon:ci:my-logo`     钉死你导入 Custom Icons 的某个 SVG
-`icon:mdi:home`       钉死某个图标包
+`icon:lucide-sun`                    Obsidian 内置的 Lucide 图标
+`icon:CI-mdi-outlined-1k`            某个已安装图标包里的图标
+`icon:CI-vscode-icons-default-file`  同上
+`icon:CI-我的图标`                     你导入的 SVG —— id 取自文件名，所以可以是中文
+```
+
+这里的 id 就是 Custom Icons / Obsidian 注册的那个，不加也不删前缀，因此一条记号永远不会指到别的图标上。
+
+简写也认（插件会依次尝试 `<名字>`、`lucide-<名字>`、`CI-<名字>`）；输入时还能按来源筛选，但补全写进文件的仍是完整 id：
+
+```md
+`icon:sun`                  lucide-sun 的简写
+`icon:ci:mdi-outlined-1k`   只在 Custom Icons 自己的注册表里找
+`icon:mdi:outlined-1k`      只在 mdi 这个包里找
+`icon:lucide:sun`           内置优先，图标包兜底
 ```
 
 - 前缀 `icon` 可以在设置里改。

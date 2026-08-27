@@ -49,6 +49,24 @@ describe("正在敲一个新记号", () => {
 		expect(at("ii:su|", options)).toMatchObject({ query: "su" });
 		expect(at("icon:su|", options)).toBeNull();
 	});
+
+	it("中文 id 片段能触发（用户 SVG 的 id 取自文件名）", () => {
+		expect(at("icon:我的|")).toMatchObject({
+			source: null,
+			query: "我的",
+		});
+		expect(replaced("今天 icon:CI-我的图标| 很好")).toBe("icon:CI-我的图标");
+	});
+
+	it("完整注册 id 也能一路敲下去", () => {
+		expect(at("icon:CI-mdi-outlined-1k|")).toMatchObject({
+			source: null,
+			query: "CI-mdi-outlined-1k",
+		});
+		expect(at("icon:lucide-sun|")).toMatchObject({
+			query: "lucide-sun",
+		});
+	});
 });
 
 describe("写了来源段", () => {
@@ -91,6 +109,7 @@ describe("不该触发的情形", () => {
 		["|", "空行"],
 		["hello |", "刚敲了空格"],
 		["myicon:su|", "贴在别的词后面"],
+		["中文icon:su|", "贴在中文后面"],
 		["icon-su|", "不是冒号"],
 	])("%s（%s）", (lineWithCaret) => {
 		expect(at(lineWithCaret)).toBeNull();

@@ -68,6 +68,36 @@ describe("filterCandidates", () => {
 	it("查不到就是空列表", () => {
 		expect(filterCandidates(CATALOG, "zzz", [], 30)).toEqual([]);
 	});
+
+	it("完整 id 也参与匹配（敲 CI- 开头也能命中）", () => {
+		const catalog: IconCandidate[] = [
+			{ id: "lucide-sun", label: "sun", source: "builtin" },
+			{
+				id: "CI-mdi-outlined-1k",
+				label: "mdi-outlined-1k",
+				source: "custom-icons",
+			},
+		];
+		expect(labels(filterCandidates(catalog, "CI-mdi", [], 30))).toEqual([
+			"mdi-outlined-1k",
+		]);
+		expect(labels(filterCandidates(catalog, "lucide-", [], 30))).toEqual([
+			"sun",
+		]);
+	});
+
+	it("中文 id 按包含匹配", () => {
+		const catalog: IconCandidate[] = [
+			{ id: "CI-我的图标", label: "我的图标", source: "custom-icons" },
+			{ id: "lucide-sun", label: "sun", source: "builtin" },
+		];
+		expect(labels(filterCandidates(catalog, "我的", [], 30))).toEqual([
+			"我的图标",
+		]);
+		expect(labels(filterCandidates(catalog, "图标", [], 30))).toEqual([
+			"我的图标",
+		]);
+	});
 });
 
 describe("filterCandidates：写了来源段之后允许空 query", () => {

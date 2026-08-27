@@ -1,5 +1,5 @@
 import { parseTokenBody, type IconToken } from "../src/syntax/grammar";
-import { IconResolver } from "../src/syntax/resolve";
+import { IconResolver, labelOf } from "../src/syntax/resolve";
 
 /** 只装本插件时的注册表：Obsidian 内置图标，没有任何 CI-*。 */
 const BUILTIN_ONLY = ["lucide-sun", "lucide-alarm-clock", "lucide-home"];
@@ -48,13 +48,22 @@ describe("P1 基线：只装本插件", () => {
 describe("装了 Custom Icons", () => {
 	const resolver = resolverFor(WITH_CUSTOM_ICONS);
 
-	it("单段解析链的优先级：内置 > 用户 SVG > 图标包", () => {
-		// home 同时存在于内置、mdi 包、ph 包
+	it("单段形态：原样 → 内置 → Custom Icons", () => {
+		// home 同时存在于内置与两个包，单段只认内置
 		expect(resolver.resolve(token("icon:home"))).toBe("lucide-home");
-		// my-logo 只有用户 SVG 有
+		// 用户 SVG 与图标包都走 CI-<name>，name 就是 CI- 之后的整段
 		expect(resolver.resolve(token("icon:my-logo"))).toBe("CI-my-logo");
-		// account-circle 只有 mdi 包有 → 走后缀索引
-		expect(resolver.resolve(token("icon:account-circle"))).toBe(
+		expect(resolver.resolve(token("icon:mdi-account-circle"))).toBe(
+			"CI-mdi-account-circle",
+		);
+		expect(resolver.resolve(token("icon:ph-home"))).toBe("CI-ph-home");
+	});
+
+	it("**不猜图标包**：单段的名字不会被拿去各个包里试前缀", () => {
+		// account-circle 只有 mdi 包里有，但单段不猜 → 保留原文
+		expect(resolver.resolve(token("icon:account-circle"))).toBeNull();
+		// 要指它就写全 mdi-account-circle，或用来源段 mdi:account-circle
+		expect(resolver.resolve(token("icon:mdi:account-circle"))).toBe(
 			"CI-mdi-account-circle",
 		);
 	});
@@ -64,8 +73,9 @@ describe("装了 Custom Icons", () => {
 		expect(resolver.resolve(token("icon:lucide-sun"))).toBe("lucide-sun");
 	});
 
-	it("ci: 钉死用户 SVG，不回退到图标包", () => {
+	it("ci: 钉死用户 SVG / 图标包里的那个 id，不做任何切分猜测", () => {
 		expect(resolver.resolve(token("icon:ci:my-logo"))).toBe("CI-my-logo");
+		expect(resolver.resolve(token("icon:ci:mdi-home"))).toBe("CI-mdi-home");
 		expect(resolver.resolve(token("icon:ci:home"))).toBeNull();
 	});
 
@@ -83,8 +93,57 @@ describe("装了 Custom Icons", () => {
 		);
 	});
 
-	it("后缀索引不会把 packId 段本身当成名字", () => {
+	it("光一个包 id 不是图标名", () => {
 		expect(resolver.resolve(token("icon:mdi"))).toBeNull();
+	});
+});
+
+describe("落盘形态放的是真实注册 id", () => {
+	// 用户给的例子，注册表照着造；再加一个中文 id 的用户 SVG
+	const resolver = resolverFor([
+		"lucide-sun",
+		"CI-mdi-outlined-1k",
+		"CI-vscode-icons-default-file",
+		"CI-我的图标",
+	]);
+
+	it.each([
+		["icon:lucide-sun", "lucide-sun"],
+		["icon:CI-mdi-outlined-1k", "CI-mdi-outlined-1k"],
+		["icon:CI-vscode-icons-default-file", "CI-vscode-icons-default-file"],
+		["icon:CI-我的图标", "CI-我的图标"],
+	])("`%s` → %s（原样那一档）", (body, iconId) => {
+		expect(resolver.resolve(token(body))).toBe(iconId);
+	});
+
+	it("补全写出来的就是真实 id，前缀原样留着", () => {
+		expect(resolver.tokenFor("lucide-sun")).toBe("`icon:lucide-sun`");
+		expect(resolver.tokenFor("CI-mdi-outlined-1k")).toBe(
+			"`icon:CI-mdi-outlined-1k`",
+		);
+		expect(resolver.tokenFor("CI-vscode-icons-default-file")).toBe(
+			"`icon:CI-vscode-icons-default-file`",
+		);
+		expect(resolver.tokenFor("CI-我的图标")).toBe("`icon:CI-我的图标`");
+	});
+
+	it("手写简写也认（去掉前缀的写法走 ②③ 档）", () => {
+		expect(resolver.resolve(token("icon:sun"))).toBe("lucide-sun");
+		expect(resolver.resolve(token("icon:mdi-outlined-1k"))).toBe(
+			"CI-mdi-outlined-1k",
+		);
+		expect(resolver.resolve(token("icon:我的图标"))).toBe("CI-我的图标");
+	});
+
+	it("撞名时真实 id 一定指到自己（这就是不删前缀的意义）", () => {
+		const withCollision = resolverFor(["lucide-sun", "CI-sun"]);
+		expect(withCollision.tokenFor("CI-sun")).toBe("`icon:CI-sun`");
+		expect(withCollision.resolve(token("icon:CI-sun"))).toBe("CI-sun");
+		expect(withCollision.resolve(token("icon:lucide-sun"))).toBe(
+			"lucide-sun",
+		);
+		// 简写形态才有先后之争
+		expect(withCollision.resolve(token("icon:sun"))).toBe("lucide-sun");
 	});
 });
 
@@ -243,31 +302,37 @@ describe("catalogFor：写了来源段之后只列那个来源", () => {
 			}
 		}
 	});
+
+	it("在来源里挑的，落盘也是真实 id（来源段不进文件）", () => {
+		for (const candidate of resolver.catalogFor("mdi")) {
+			const body = resolver.tokenFor(candidate.id).slice(1, -1);
+			expect(body).toBe(`icon:${candidate.id}`);
+			expect(resolver.resolve(token(body))).toBe(candidate.id);
+		}
+	});
+
+	it("写不进记号的 id 会被剔掉（含冒号 / 逗号 / 反引号）", () => {
+		const messy = resolverFor([
+			"lucide-sun",
+			"CI-a,b",
+			"CI-a:b",
+			"CI-a`b",
+			"CI-正常的中文 id",
+		]);
+		expect(messy.catalog().map((candidate) => candidate.id)).toEqual([
+			"lucide-sun",
+			"CI-正常的中文 id",
+		]);
+	});
 });
 
 describe("tokenFor：补全写进文件的形态", () => {
 	const resolver = resolverFor(WITH_CUSTOM_ICONS);
 
-	it("取最短形态，并且带上那一对反引号", () => {
-		expect(resolver.tokenFor("lucide-sun")).toBe("`icon:sun`");
-		expect(resolver.tokenFor("CI-my-logo")).toBe("`icon:my-logo`");
-	});
-
-	it("名字被别处抢先时退一步钉死来源", () => {
-		// 用户导入了一个也叫 sun 的 SVG：单段的 icon:sun 会解析到内置的 lucide-sun，
-		// 所以这个用户 SVG 必须写成钉死形态才能指到它自己
-		const withCollision = resolverFor([
-			...WITH_CUSTOM_ICONS,
-			"CI-sun",
-		]);
-		expect(withCollision.tokenFor("CI-sun")).toBe("`icon:ci:sun`");
-		expect(withCollision.resolve(token("icon:ci:sun"))).toBe("CI-sun");
-		expect(withCollision.resolve(token("icon:sun"))).toBe("lucide-sun");
-	});
-
-	it("包图标的完整 body 不与内置撞名，所以仍是最短形态", () => {
-		expect(resolver.tokenFor("CI-mdi-home")).toBe("`icon:mdi-home`");
-		expect(resolver.resolve(token("icon:mdi-home"))).toBe("CI-mdi-home");
+	it("就是真实 id，一字不改，并且带上那一对反引号", () => {
+		for (const id of WITH_CUSTOM_ICONS) {
+			expect(resolver.tokenFor(id)).toBe(`\`icon:${id}\``);
+		}
 	});
 
 	it("写出来的记号一定解析回同一个 id（往返校验）", () => {
@@ -279,22 +344,7 @@ describe("tokenFor：补全写进文件的形态", () => {
 
 	it("跟随自定义前缀", () => {
 		expect(resolver.tokenFor("lucide-sun", { prefix: "ico" })).toBe(
-			"`ico:sun`",
+			"`ico:lucide-sun`",
 		);
-	});
-
-	it("用户自己写了来源段就保留它，不改写成更短的形态", () => {
-		expect(
-			resolver.tokenFor("CI-mdi-home", {}, { source: "mdi", name: "home" }),
-		).toBe("`icon:mdi:home`");
-		expect(
-			resolver.tokenFor("CI-my-logo", {}, { source: "ci", name: "my-logo" }),
-		).toBe("`icon:ci:my-logo`");
-	});
-
-	it("来源段拼不回同一个 id 时忽略它，退回最短形态", () => {
-		expect(
-			resolver.tokenFor("CI-mdi-home", {}, { source: "ph", name: "home" }),
-		).toBe("`icon:mdi-home`");
 	});
 });

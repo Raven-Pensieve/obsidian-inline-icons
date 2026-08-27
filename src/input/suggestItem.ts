@@ -8,7 +8,8 @@ export const SUGGEST_ITEM_CLASS = "ii-suggest-item";
 /**
  * 候选行的统一渲染：**左侧必须是真图标**。
  *
- * 只列名字的补全等于没有补全——用户不可能记住上千个 id。右侧显示来源，
+ * 只列名字的补全等于没有补全——用户不可能记住上千个 id。中间显示的是**完整注册 id**，
+ * 也就是回车后会被写进文件的那一段（所见即所得）；右侧显示来源，
  * 否则装了图标包后列表会变成一堆看不出出处的名字。
  *
  * `EditorSuggest` 与插入命令的模态框共用这一份，保证两条输入路径长得一样。
@@ -22,7 +23,7 @@ export function renderIconSuggestion(
 	const iconEl = el.createSpan({ cls: "ii-suggest-icon" });
 	setIcon(iconEl, candidate.id);
 
-	el.createSpan({ cls: "ii-suggest-label", text: candidate.label });
+	el.createSpan({ cls: "ii-suggest-label", text: candidate.id });
 	el.createSpan({
 		cls: "ii-suggest-source",
 		text: sourceLabel(candidate.source),

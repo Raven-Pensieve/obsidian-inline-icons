@@ -25,8 +25,9 @@ export class InsertIconModal extends FuzzySuggestModal<IconCandidate> {
 		return [...this.#plugin.resolver.catalog()];
 	}
 
+	/** 用完整注册 id 做模糊搜索：它既是展示文本，也是回车后写进文件的东西。 */
 	getItemText(item: IconCandidate): string {
-		return item.label;
+		return item.id;
 	}
 
 	renderSuggestion(match: FuzzyMatch<IconCandidate>, el: HTMLElement): void {
