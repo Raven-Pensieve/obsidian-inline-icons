@@ -43,14 +43,16 @@ const QUERY_SEGMENT = "[\\p{L}\\p{N}_.-]{1,96}";
  *
  * 1. **光标落在一个已存在的记号里**（`` `icon:m|di:home` ``）——替换范围覆盖整对反引号，
  *    于是换图标不用重打，也不会改一半留下残渣；
- * 2. **正在敲一个新记号**（`icon:` / `i:su` / `icon:ci:` / `icon:mdi:ho`）——
- *    **冒号一敲完就算命中**，后面还没有字符也算。唯一例外是单字符触发词
- *    （默认别名 `i`）光秃秃一个冒号，见 {@link matchWhileTyping}。
+ * 2. **正在敲一个新记号**（`icon:` / `i:` / `icon:ci:` / `icon:mdi:ho`）——
+ *    **冒号一敲完就算命中**，后面还没有字符也算，前缀和别名一视同仁。
  *
  * 早期版本要求「没写来源段时至少一个字符」，理由是空 query 会列出上千个图标。
  * 那个理由站不住：候选本来就有 `MAX_RESULTS` 上限，而「敲完 `icon:` 什么都不弹、
  * 必须再猜一个字母」反而要求用户先知道图标叫什么——正好是补全该解决的问题。
  * 数量上限交给 `filterCandidates`，这里只管边界。
+ *
+ * 单字符别名（默认 `i`）光秃秃一个冒号也照弹：代价是英文提纲的 `I: Introduction`
+ * 会误弹一次，但按 Esc 或接着打字就消掉，比「别名非得多敲一个字母才生效」更值。
  */
 export function matchTrigger(
 	line: string,
@@ -104,21 +106,14 @@ function matchWhileTyping(
 	if (words.length === 0) return null;
 
 	const pattern = new RegExp(
-		`(?:^|[^\\p{L}\\p{N}_-])(((?:${words.join("|")}))[:：](?:(${SOURCE_SEGMENT})[:：])?(${QUERY_SEGMENT})?)$`,
+		`(?:^|[^\\p{L}\\p{N}_-])((?:${words.join("|")})[:：](?:(${SOURCE_SEGMENT})[:：])?(${QUERY_SEGMENT})?)$`,
 		"iu",
 	);
 	const match = pattern.exec(before);
 	if (match === null) return null;
 
-	const word = match[2];
-	const source = match[3] === undefined ? null : match[3].toLowerCase();
-	const query = match[4] ?? "";
-
-	// 单字符触发词（默认别名 `i`）光秃秃一个冒号不算命中：英文提纲里的
-	// `I: Introduction` 会正好长这样，不该因此弹出整池图标。写了来源段、
-	// 或已经敲了字母时不受此限。两字以上的触发词（`icon:`）出现在正文里
-	// 基本只可能是故意的，所以照弹。
-	if (source === null && query === "" && word.length < 2) return null;
+	const source = match[2] === undefined ? null : match[2].toLowerCase();
+	const query = match[3] ?? "";
 
 	let start = before.length - match[1].length;
 	let end = cursorCh;
