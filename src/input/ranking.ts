@@ -8,6 +8,15 @@ import type { IconCandidate } from "@src/syntax/resolve";
 export const RECENT_LIMIT = 20;
 
 /**
+ * 候选数量上限。
+ *
+ * **故意不做成设置项**：装了图标包后可选图标可达上万个，所以必须有个上限；
+ * 但用户想收窄结果的动作是**多敲一个字母**，不是去设置里把 30 改成 60。
+ * 列表本来就能滚，这个数字没人会去调。
+ */
+export const MAX_RESULTS = 30;
+
+/**
  * 按 query 过滤并排序候选。
  *
  * 两档排序：

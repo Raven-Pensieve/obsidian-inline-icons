@@ -8,7 +8,7 @@ import {
 	type EditorSuggestTriggerInfo,
 	type TFile,
 } from "obsidian";
-import { filterCandidates } from "./ranking";
+import { filterCandidates, MAX_RESULTS } from "./ranking";
 import { renderIconSuggestion } from "./suggestItem";
 import { matchTrigger } from "./trigger";
 
@@ -64,7 +64,7 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 	/**
 	 * 候选池按来源段收窄：写了 `icon:ci:` 就只列用户 SVG，写了 `icon:mdi:` 就只列 mdi 包。
 	 *
-	 * 两种情形下**空 query 都直接列出池子**（数量由 `maxResults` 兜着）：敲完 `icon:`
+	 * 两种情形下**空 query 都直接列出池子**（数量由 {@link MAX_RESULTS} 兜着）：敲完 `icon:`
 	 * 或 `icon:ci:` 就该看到里面有什么，而不是被迫再猜一个字母。
 	 *
 	 * **写了来源段时关掉完整 id 匹配**：那时候选全是 `CI-*`，完整 id 人人都含来源段的
@@ -72,12 +72,11 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 	 * 按来源段做了一次模糊匹配。此时只有相对来源的短名该参与匹配，见 {@link filterCandidates}。
 	 */
 	getSuggestions(context: EditorSuggestContext): IconCandidate[] {
-		const { maxResults, recent } = this.#plugin.settings.suggest;
 		return filterCandidates(
 			this.#plugin.resolver.catalogFor(this.#source),
 			context.query,
-			recent,
-			maxResults,
+			this.#plugin.settings.suggest.recent,
+			MAX_RESULTS,
 			{ matchFullId: this.#source === null },
 		);
 	}

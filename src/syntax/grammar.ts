@@ -50,18 +50,6 @@ const NAME_PATTERN = /^[^`:,\r\n]{1,96}$/u;
 /** 来源段：图标包 id 被 Custom Icons 限定为小写字母/数字/连字符，不必放宽。 */
 const SOURCE_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-/**
- * **裸形式**扫描用的保守字符集：Unicode 字母（含中文）、数字、下划线、连字符。
- *
- * 这里不能用 {@link NAME_PATTERN} 那种宽松集——裸形式没有闭合符，字符集就是边界。
- * 注意即便如此，中文语境下裸形式依然不可靠（中文没有词间空格），
- * 这也是它默认关闭的原因之一。
- */
-const BARE_NAME_SOURCE = "[\\p{L}\\p{N}_-]{1,96}";
-
-/** 修饰符段的字符集（M1 不解释语义，只保证不吃掉整个记号）。 */
-const MODIFIER_SOURCE = "[A-Za-z0-9_#%.()-]{1,32}";
-
 /** 记号总长度上限：超过一律不当记号，避免长串文本反复过正则。 */
 const MAX_BODY_LENGTH = 200;
 
@@ -87,16 +75,6 @@ export interface IconToken {
 export interface GrammarOptions {
 	/** 前缀词，默认 {@link DEFAULT_PREFIX}。空白值一律回退到默认。 */
 	prefix?: string;
-}
-
-/** 裸形式扫描的一次命中。 */
-export interface BareMatch {
-	/** 命中在输入字符串中的起止（`[start, end)`）。 */
-	start: number;
-	end: number;
-	/** 命中的原文。 */
-	raw: string;
-	token: IconToken;
 }
 
 /** 把字符串转成可安全嵌进正则的形态（前缀词与输入别名都来自用户设置）。 */
@@ -188,48 +166,4 @@ export function formatCodeSpan(
 	options: GrammarOptions = {},
 ): string {
 	return `\`${formatTokenBody(token, options)}\``;
-}
-
-/**
- * 扫描**裸形式**（正文里没有反引号的 `icon:sun`）。
- *
- * 仅服务设置里那个**默认关闭**的逃生开关。它天生有 C1 的边界问题：
- * `icon:sunny` 只能整段当成名字 `sunny`，无法拆成 `sun` + 文字 `ny`。
- * 中文语境下更糟——中文没有词间空格，`icon:太阳很好` 会把「太阳很好」整段吃成 id。
- * 这就是它默认关闭、且文档必须写明「会与正文文字抢记号」的原因。
- *
- * 字符集也因此比 {@link parseTokenBody} 保守：没有闭合符时，字符集就是边界，
- * 所以这里**不允许空格、点、括号**（含这些字符的 id 只能用带反引号的形态引用）。
- *
- * 左边界靠「前一个字符不是名字字符、也不是冒号或反引号」来判定，
- * 因此**不会**重复命中已经在行内代码里的记号（调用方仍应跳过 `code` 宿主）。
- */
-export function scanBareTokens(
-	text: string,
-	options: GrammarOptions = {},
-): BareMatch[] {
-	const prefix = normalizePrefix(options.prefix);
-	// 不用后行断言（部分移动端 WebView 不支持），改为命中后手工检查前一个字符
-	const pattern = new RegExp(
-		`${escapeRegExp(prefix)}[:：](?:${BARE_NAME_SOURCE}[:：])?${BARE_NAME_SOURCE}(?:,${MODIFIER_SOURCE})*`,
-		"giu",
-	);
-
-	const matches: BareMatch[] = [];
-	for (const match of text.matchAll(pattern)) {
-		const start = match.index;
-		const before = start === 0 ? "" : text[start - 1];
-		if (before !== "" && /[\p{L}\p{N}_:：`-]/u.test(before)) continue;
-
-		const token = parseTokenBody(match[0], options);
-		if (token === null) continue;
-
-		matches.push({
-			start,
-			end: start + match[0].length,
-			raw: match[0],
-			token,
-		});
-	}
-	return matches;
 }
