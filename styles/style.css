@@ -1,8 +1,37 @@
 /*
+ * Inline Icons —— 正文里那个 span 的样式。
+ *
+ * 两条渲染管线（阅读模式的 postProcessor、实时预览的 CM6 widget）产出的都是这个
+ * 结构，所以样式只写一份：
+ *
+ *   <span class="inline-icon"><svg …/></span>
+ *
+ * 尺寸走 1em 而不是写死 px，颜色走 currentColor，于是图标自动跟随所在段落的字号与
+ * 颜色（标题里变大、加粗里变粗、链接里变成链接色）。这能生效的前提是注册进 Obsidian
+ * 注册表的 SVG 没有硬编码 width/height —— Custom Icons 的 cleanSvg 在 addIcon 前
+ * 已经剥掉了它们，sanitize 也会给无 fill 的图标补 fill="currentColor"。
+ */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.inline-icon {
+	display: inline-flex;
+	width: 1em;
+	height: 1em;
+	/* 与基线对齐，否则图标会浮在文字上方 */
+	vertical-align: -0.125em;
+	color: currentColor;
+}
 
-If your plugin does not need CSS, delete this file.
+.inline-icon > svg {
+	width: 100%;
+	height: 100%;
+}
 
-*/
+/*
+ * 解析不出图标时保留原文（而不是留白），并打上这个 class 供用户诊断：
+ * 名字打错了、图标包被停用了、或者 Custom Icons 没装。
+ */
+.inline-icon-unresolved {
+	color: var(--text-error);
+	text-decoration: underline dotted;
+	text-underline-offset: 0.2em;
+}

@@ -12,88 +12,52 @@ const zh = {
 		moveDown: "下移",
 	},
 	settings: {
-		general: {
-			name: "通用",
-			desc: "开关、文本与下拉等基础控件示例",
-			enableFeature: {
-				name: "启用功能",
-				desc: "总开关；关闭后下方「详细日志」会隐藏",
+		syntax: {
+			name: "语法",
+			desc: "记号长什么样，以及是否渲染裸形式",
+			prefix: {
+				name: "前缀词",
+				desc: "记号形如 `<前缀>:sun`。改前缀会让已经写进笔记的旧记号失效，请谨慎",
+				invalid: "只能用字母、数字、下划线与连字符，长度 1-16",
 			},
-			greeting: {
-				name: "问候语",
-				desc: "单行文本，演示 validate（非空且不超过 20 字）",
-				invalid: "问候语不能为空且不超过 20 个字符",
-			},
-			mode: {
-				name: "模式",
-				desc: "下拉选择，取值受 options 约束",
-				simple: "简单",
-				advanced: "高级",
-			},
-			verboseLog: {
-				name: "详细日志",
-				desc: "仅当「启用功能」开启时可见，演示 visible 联动",
+			renderBareToken: {
+				name: "渲染裸形式",
+				desc: "连正文里没有反引号的 icon:sun 也渲染。它会与正文文字抢记号（icon:sunny 会整段当成名字），默认关闭",
 			},
 		},
-		appearance: {
-			name: "外观",
-			desc: "颜色、滑块与数字控件示例",
-			accentColor: {
-				name: "强调色",
-				desc: "颜色控件，存储为十六进制色值",
+		render: {
+			name: "渲染",
+			desc: "两条渲染管线各自的开关",
+			readingMode: {
+				name: "阅读模式",
+				desc: "在阅读模式、内嵌与悬浮预览里渲染记号",
 			},
-			fontScale: {
-				name: "字号缩放",
-				desc: "滑块，通过 displayFormat 以百分比显示",
-			},
-			maxItems: {
-				name: "最大条目数",
-				desc: "数字控件，限定 min / max / step",
+			livePreview: {
+				name: "实时预览",
+				desc: "在实时预览里渲染记号；光标移进记号时会露出原文。源码模式一律只显示原文",
 			},
 		},
-		paths: {
-			name: "路径",
-			desc: "文件、文件夹与多行文本控件示例",
-			templateFile: {
-				name: "模板文件",
-				desc: "文件路径，带联想选择器（仅联想 Markdown 文件）",
+		suggest: {
+			name: "补全",
+			desc: "输入记号的两条路径，反引号一律由插件补",
+			enabled: {
+				name: "输入时弹出候选",
+				desc: "敲前缀或输入别名时弹出图标候选，回车整段写入含反引号的记号",
 			},
-			outputFolder: {
-				name: "输出文件夹",
-				desc: "文件夹路径，带联想选择器",
+			alias: {
+				name: "输入别名",
+				desc: "敲「别名 + 冒号 + 几个字母」就能弹出候选。这个别名只存在于补全里，不会写进文件",
+				invalid: "只能用字母、数字、下划线与连字符，长度 1-8",
 			},
-			header: {
-				name: "页首文本",
-				desc: "多行文本框",
+			maxResults: {
+				name: "候选数量上限",
+				desc: "装了图标包后可选图标可达上万个，列表要截断",
 			},
 		},
-		advanced: {
-			name: "进阶",
-			desc: "原生列表、动作按钮与 React 孤岛示例",
-			bookmarks: {
-				name: "书签",
-				desc: "原生 list：可增删、拖拽排序，编辑走对话框",
-				add: "添加书签",
-				empty: "暂无书签，点击右上角「+」添加",
-				defaultName: "新书签 {index}",
-				noPath: "未设置路径",
-				edit: "编辑",
-				editTitle: "编辑书签",
-				namePlaceholder: "名称",
-				pathPlaceholder: "路径",
-			},
-			reset: {
-				name: "重置全部设置",
-				desc: "把所有设置恢复为默认值",
-				button: "重置",
-			},
-			tags: {
-				name: "标签",
-				desc: "React 孤岛：组件自行订阅 SettingsStore 并异步落盘",
-				placeholder: "输入标签后回车添加",
-				empty: "暂无标签",
-				count: "共 {count} 个",
-			},
+		reset: {
+			name: "重置全部设置",
+			desc: "把所有设置恢复为默认值",
+			button: "重置",
 		},
 	},
 } satisfies BaseTranslation;

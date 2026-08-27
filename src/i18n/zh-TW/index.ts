@@ -12,88 +12,52 @@ const zh_TW = {
 		moveDown: "下移",
 	},
 	settings: {
-		general: {
-			name: "一般",
-			desc: "開關、文字與下拉等基礎控制項範例",
-			enableFeature: {
-				name: "啟用功能",
-				desc: "總開關；關閉後下方「詳細日誌」會隱藏",
+		syntax: {
+			name: "語法",
+			desc: "記號長什麼樣，以及是否渲染裸形式",
+			prefix: {
+				name: "前綴詞",
+				desc: "記號形如 `<前綴>:sun`。改前綴會讓已經寫進筆記的舊記號失效，請謹慎",
+				invalid: "只能用字母、數字、底線與連字號，長度 1-16",
 			},
-			greeting: {
-				name: "問候語",
-				desc: "單行文字，示範 validate（非空且不超過 20 字）",
-				invalid: "問候語不能為空且不超過 20 個字元",
-			},
-			mode: {
-				name: "模式",
-				desc: "下拉選擇，取值受 options 約束",
-				simple: "簡單",
-				advanced: "進階",
-			},
-			verboseLog: {
-				name: "詳細日誌",
-				desc: "僅當「啟用功能」開啟時可見，示範 visible 連動",
+			renderBareToken: {
+				name: "渲染裸形式",
+				desc: "連正文裡沒有反引號的 icon:sun 也渲染。它會與正文文字搶記號（icon:sunny 會整段當成名稱），預設關閉",
 			},
 		},
-		appearance: {
-			name: "外觀",
-			desc: "顏色、滑桿與數字控制項範例",
-			accentColor: {
-				name: "強調色",
-				desc: "顏色控制項，儲存為十六進位色值",
+		render: {
+			name: "渲染",
+			desc: "兩條渲染管線各自的開關",
+			readingMode: {
+				name: "閱讀模式",
+				desc: "在閱讀模式、內嵌與懸浮預覽裡渲染記號",
 			},
-			fontScale: {
-				name: "字級縮放",
-				desc: "滑桿，透過 displayFormat 以百分比顯示",
-			},
-			maxItems: {
-				name: "最大項目數",
-				desc: "數字控制項，限定 min / max / step",
+			livePreview: {
+				name: "即時預覽",
+				desc: "在即時預覽裡渲染記號；游標移進記號時會露出原文。原始碼模式一律只顯示原文",
 			},
 		},
-		paths: {
-			name: "路徑",
-			desc: "檔案、資料夾與多行文字控制項範例",
-			templateFile: {
-				name: "範本檔案",
-				desc: "檔案路徑，帶聯想選擇器（僅聯想 Markdown 檔案）",
+		suggest: {
+			name: "補全",
+			desc: "輸入記號的兩條路徑，反引號一律由外掛補上",
+			enabled: {
+				name: "輸入時彈出候選",
+				desc: "敲前綴或輸入別名時彈出圖示候選，Enter 整段寫入含反引號的記號",
 			},
-			outputFolder: {
-				name: "輸出資料夾",
-				desc: "資料夾路徑，帶聯想選擇器",
+			alias: {
+				name: "輸入別名",
+				desc: "敲「別名 + 冒號 + 幾個字母」就能彈出候選。這個別名只存在於補全裡，不會寫進檔案",
+				invalid: "只能用字母、數字、底線與連字號，長度 1-8",
 			},
-			header: {
-				name: "頁首文字",
-				desc: "多行文字框",
+			maxResults: {
+				name: "候選數量上限",
+				desc: "裝了圖示包後可選圖示可達上萬個，清單需要截斷",
 			},
 		},
-		advanced: {
-			name: "進階",
-			desc: "原生清單、動作按鈕與 React 孤島範例",
-			bookmarks: {
-				name: "書籤",
-				desc: "原生 list：可新增刪除、拖曳排序，編輯走對話框",
-				add: "新增書籤",
-				empty: "尚無書籤，點擊右上角「+」新增",
-				defaultName: "新書籤 {index}",
-				noPath: "未設定路徑",
-				edit: "編輯",
-				editTitle: "編輯書籤",
-				namePlaceholder: "名稱",
-				pathPlaceholder: "路徑",
-			},
-			reset: {
-				name: "重設全部設定",
-				desc: "把所有設定恢復為預設值",
-				button: "重設",
-			},
-			tags: {
-				name: "標籤",
-				desc: "React 孤島：元件自行訂閱 SettingsStore 並非同步落盤",
-				placeholder: "輸入標籤後按 Enter 新增",
-				empty: "尚無標籤",
-				count: "共 {count} 個",
-			},
+		reset: {
+			name: "重設全部設定",
+			desc: "把所有設定恢復為預設值",
+			button: "重設",
 		},
 	},
 } satisfies BaseTranslation;

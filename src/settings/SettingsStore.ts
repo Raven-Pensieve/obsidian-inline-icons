@@ -76,7 +76,7 @@ export default class SettingsStore {
 	}
 
 	async loadSettings() {
-		const saved = (await this.#plugin.loadData()) as unknown;
+		const saved: unknown = await this.#plugin.loadData();
 		const merged = this.#mergeWithDefaults(saved ?? {}, DEFAULT_SETTINGS);
 
 		this.#plugin.settings = merged;

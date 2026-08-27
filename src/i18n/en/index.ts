@@ -12,88 +12,52 @@ const en = {
 		moveDown: "Move down",
 	},
 	settings: {
-		general: {
-			name: "General",
-			desc: "Toggle, text and dropdown control examples",
-			enableFeature: {
-				name: "Enable feature",
-				desc: "Master switch; turning it off hides \"Verbose log\" below",
+		syntax: {
+			name: "Syntax",
+			desc: "What a token looks like, and whether the bare form renders",
+			prefix: {
+				name: "Prefix",
+				desc: "A token looks like `<prefix>:sun`. Changing this breaks the tokens already written in your notes — be careful",
+				invalid: "Letters, digits, underscores and hyphens only, 1-16 characters",
 			},
-			greeting: {
-				name: "Greeting",
-				desc: "Single-line text, demonstrates validate (non-empty, at most 20 chars)",
-				invalid: "Greeting must be non-empty and at most 20 characters",
-			},
-			mode: {
-				name: "Mode",
-				desc: "Dropdown selection, values constrained by options",
-				simple: "Simple",
-				advanced: "Advanced",
-			},
-			verboseLog: {
-				name: "Verbose log",
-				desc: "Visible only when \"Enable feature\" is on, demonstrates the visible predicate",
+			renderBareToken: {
+				name: "Render the bare form",
+				desc: "Also render icon:sun written without backticks. It competes with your prose for tokens (icon:sunny is read as the name \"sunny\"), so it is off by default",
 			},
 		},
-		appearance: {
-			name: "Appearance",
-			desc: "Color, slider and number control examples",
-			accentColor: {
-				name: "Accent color",
-				desc: "Color control, stored as a hex value",
+		render: {
+			name: "Rendering",
+			desc: "One switch per rendering pipeline",
+			readingMode: {
+				name: "Reading view",
+				desc: "Render tokens in reading view, embeds and hover previews",
 			},
-			fontScale: {
-				name: "Font scale",
-				desc: "Slider, shown as a percentage via displayFormat",
-			},
-			maxItems: {
-				name: "Max items",
-				desc: "Number control with min / max / step",
+			livePreview: {
+				name: "Live Preview",
+				desc: "Render tokens in Live Preview; moving the cursor onto a token reveals the original text. Source mode always shows the text",
 			},
 		},
-		paths: {
-			name: "Paths",
-			desc: "File, folder and multi-line text control examples",
-			templateFile: {
-				name: "Template file",
-				desc: "File path with a suggester (only Markdown files are suggested)",
+		suggest: {
+			name: "Suggester",
+			desc: "Two ways to type a token — the backticks are always written by the plugin",
+			enabled: {
+				name: "Suggest while typing",
+				desc: "Pop up icon candidates when you type the prefix or the input alias; Enter writes the whole token, backticks included",
 			},
-			outputFolder: {
-				name: "Output folder",
-				desc: "Folder path with a suggester",
+			alias: {
+				name: "Input alias",
+				desc: "Type \"alias + colon + a few letters\" to get candidates. The alias only exists in the suggester and is never written to the file",
+				invalid: "Letters, digits, underscores and hyphens only, 1-8 characters",
 			},
-			header: {
-				name: "Header text",
-				desc: "Multi-line text area",
+			maxResults: {
+				name: "Maximum candidates",
+				desc: "With icon packs installed there can be tens of thousands of icons, so the list has to be truncated",
 			},
 		},
-		advanced: {
-			name: "Advanced",
-			desc: "Native list, action button and React island examples",
-			bookmarks: {
-				name: "Bookmarks",
-				desc: "Native list: add, delete and drag to reorder, edited through a dialog",
-				add: "Add bookmark",
-				empty: "No bookmarks yet, click the \"+\" in the top-right to add one",
-				defaultName: "New bookmark {index}",
-				noPath: "No path set",
-				edit: "Edit",
-				editTitle: "Edit bookmark",
-				namePlaceholder: "Name",
-				pathPlaceholder: "Path",
-			},
-			reset: {
-				name: "Reset all settings",
-				desc: "Restore all settings to their defaults",
-				button: "Reset",
-			},
-			tags: {
-				name: "Tags",
-				desc: "React island: the component subscribes to SettingsStore and persists asynchronously",
-				placeholder: "Type a tag and press Enter to add",
-				empty: "No tags yet",
-				count: "{count} total",
-			},
+		reset: {
+			name: "Reset all settings",
+			desc: "Restore all settings to their defaults",
+			button: "Reset",
 		},
 	},
 } satisfies BaseTranslation;
