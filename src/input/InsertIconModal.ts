@@ -2,6 +2,7 @@ import { LL } from "@src/i18n/i18n";
 import type InlineIconsPlugin from "@src/main";
 import type { IconCandidate } from "@src/syntax/resolve";
 import { FuzzySuggestModal, type Editor, type FuzzyMatch } from "obsidian";
+import { applyIconPick, type IconEditTarget } from "./iconEdit";
 import { renderIconSuggestion } from "./suggestItem";
 
 /**
@@ -9,15 +10,26 @@ import { renderIconSuggestion } from "./suggestItem";
  *
  * 完全不用记语法——这也是「敲不出 `i:` 触发序列」时的兜底入口。
  * 与 `EditorSuggest` 共用 {@link renderIconSuggestion}，两条路径的候选行长得一样。
+ *
+ * **也承担「Custom Icons 不在场时的更换图标」**：那时右键菜单的「更换图标…」退回
+ * 这里，所以它必须能吃 {@link IconEditTarget}——只会 `replaceSelection` 的话，
+ * 会在旧记号旁边并列插一个新的。
  */
 export class InsertIconModal extends FuzzySuggestModal<IconCandidate> {
 	readonly #plugin: InlineIconsPlugin;
 	readonly #editor: Editor;
+	readonly #target: IconEditTarget | null;
 
-	constructor(plugin: InlineIconsPlugin, editor: Editor) {
+	/** @param target `null` = 插入；否则整段替换那个已存在的记号。 */
+	constructor(
+		plugin: InlineIconsPlugin,
+		editor: Editor,
+		target: IconEditTarget | null = null,
+	) {
 		super(plugin.app);
 		this.#plugin = plugin;
 		this.#editor = editor;
+		this.#target = target;
 		this.setPlaceholder(LL.commands.insertIcon.placeholder());
 	}
 
@@ -45,12 +57,18 @@ export class InsertIconModal extends FuzzySuggestModal<IconCandidate> {
 		renderIconSuggestion(this.#plugin, match.item, el);
 	}
 
+	/**
+	 * 走唯一写盘口。**颜色传 `undefined`**：本模态框没有颜色控件，
+	 * 那正是契约里「未改动」的语义——编辑态因此会原样保留用户已写的颜色与尺寸，
+	 * 只把图标换掉。
+	 */
 	onChooseItem(item: IconCandidate): void {
-		const text = this.#plugin.resolver.tokenFor(
+		applyIconPick(
+			this.#plugin,
+			this.#editor,
+			this.#target,
 			item.id,
-			this.#plugin.grammarOptions,
+			undefined,
 		);
-		this.#editor.replaceSelection(text);
-		void this.#plugin.rememberIcon(item.id);
 	}
 }

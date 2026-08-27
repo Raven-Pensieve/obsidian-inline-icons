@@ -1,7 +1,10 @@
 import { parseTokenBody } from "../src/syntax/grammar";
 import {
+	classifyModifier,
 	EMPTY_ICON_STYLE,
+	findColorModifier,
 	parseModifiers,
+	replaceColorModifier,
 	type IconStyle,
 } from "../src/syntax/modifiers";
 
@@ -115,5 +118,119 @@ describe("组合与容错", () => {
 		expect(parseModifiers(["2em"])).toEqual({ color: null, size: "2em" });
 		// 纯字母只会被判成颜色
 		expect(parseModifiers(["red"])).toEqual({ color: "red", size: null });
+	});
+});
+
+describe("classifyModifier", () => {
+	it.each([
+		["1.5em", "size"],
+		["20px", "size"],
+		["#ab05cc", "color"],
+		["red", "color"],
+		["--text-accent", "color"],
+		["var(--x, red)", "color"],
+		["rgb(1 2 3)", "color"],
+	])("%s → %s", (modifier, kind) => {
+		expect(classifyModifier(modifier)).toBe(kind);
+	});
+
+	it("认不出的段返回 null（改写时要原样保留）", () => {
+		expect(classifyModifier("ならい")).toBeNull();
+		expect(classifyModifier("1vw")).toBeNull();
+		expect(classifyModifier("2")).toBeNull();
+	});
+
+	it("判据与 parseModifiers 完全一致（共用 asSize / asColor）", () => {
+		// 菜单认的和渲染认的必须是同一套，否则会出现「菜单以为这段是颜色、
+		// 于是替换掉，而渲染本来根本不认它」
+		for (const modifier of ["1.5em", "#fff", "red", "1vw", "ならい", "2"]) {
+			const style = parseModifiers([modifier]);
+			const kind = classifyModifier(modifier);
+			if (kind === "size") expect(style.size).not.toBeNull();
+			else if (kind === "color") expect(style.color).not.toBeNull();
+			else expect(style).toEqual(EMPTY_ICON_STYLE);
+		}
+	});
+});
+
+describe("replaceColorModifier", () => {
+	it("空数组：加一段颜色", () => {
+		expect(replaceColorModifier([], "#123456")).toEqual(["#123456"]);
+	});
+
+	it("只有尺寸：尺寸留着，颜色追加", () => {
+		expect(replaceColorModifier(["1.5em"], "#123456")).toEqual([
+			"1.5em",
+			"#123456",
+		]);
+	});
+
+	it("只有颜色：换掉", () => {
+		expect(replaceColorModifier(["#ab05cc"], "#123456")).toEqual([
+			"#123456",
+		]);
+	});
+
+	it("颜色写了两遍：结果只剩一段", () => {
+		// 不做「就地替换第一段」——修饰符是「同类后者胜出」，
+		// 就地改第一段的话后面那段会继续赢，用户看不到自己选的颜色
+		expect(replaceColorModifier(["red", "#ab05cc"], "#123456")).toEqual([
+			"#123456",
+		]);
+	});
+
+	it("认不出的段必须保留（那是用户亲手写的字）", () => {
+		expect(replaceColorModifier(["ならい", "#ab05cc"], "#123456")).toEqual([
+			"ならい",
+			"#123456",
+		]);
+	});
+
+	it("color = null 删除全部颜色段，其余留着", () => {
+		expect(
+			replaceColorModifier(["1.5em", "red", "ならい", "#ab05cc"], null),
+		).toEqual(["1.5em", "ならい"]);
+	});
+
+	it("主题变量与颜色关键字也算颜色段，会被替换掉", () => {
+		expect(replaceColorModifier(["--text-accent"], "#123456")).toEqual([
+			"#123456",
+		]);
+		expect(replaceColorModifier(["rebeccapurple"], null)).toEqual([]);
+	});
+
+	it("不改动入参", () => {
+		const input = ["1.5em", "red"];
+		replaceColorModifier(input, "#123456");
+		expect(input).toEqual(["1.5em", "red"]);
+	});
+
+	it("换图标不碰颜色的场景由调用方直接复用原数组，这里只管显式改色", () => {
+		// 保留矩阵里 `color === undefined` 那一行不经过本函数（见 iconEdit.ts），
+		// 所以本函数永远是「用户显式动了颜色」的语义
+		expect(replaceColorModifier(["1.5em", "#ab05cc"], "#123456")).toEqual([
+			"1.5em",
+			"#123456",
+		]);
+	});
+});
+
+describe("findColorModifier", () => {
+	it("取最后一个颜色段——那才是当前生效的（同类后者胜出）", () => {
+		expect(findColorModifier(["red", "#ab05cc"])).toBe("#ab05cc");
+	});
+
+	it("给的是原始段而不是归一化后的值", () => {
+		// parseModifiers 会把 `--x` 归一成 `var(--x)`，而调用方接着要判断
+		// 「这是不是 hex」（提供方的色板只吃 #rrggbb）
+		expect(findColorModifier(["--text-accent"])).toBe("--text-accent");
+		expect(parseModifiers(["--text-accent"]).color).toBe(
+			"var(--text-accent)",
+		);
+	});
+
+	it("没有颜色段时返回 null", () => {
+		expect(findColorModifier([])).toBeNull();
+		expect(findColorModifier(["1.5em", "ならい"])).toBeNull();
 	});
 });

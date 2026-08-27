@@ -31,6 +31,11 @@ const zh_TW = {
 		sourceCustomIcons: "Custom Icons",
 		sourceUserSvg: "我的 SVG",
 	},
+	menu: {
+		insertIcon: "插入圖示…",
+		replaceIcon: "更換圖示…",
+		removeIcon: "移除圖示",
+	},
 	commands: {
 		insertIcon: {
 			name: "插入圖示",

@@ -109,6 +109,67 @@ function asColor(modifier: string): string | null {
 	return null;
 }
 
+/** 一段修饰符属于哪一类；`null` = 认不出（渲染时忽略，改写时**原样保留**）。 */
+export type ModifierKind = "color" | "size" | null;
+
+/**
+ * 判定单段修饰符的类别。
+ *
+ * 供右键菜单那条路径改写记号时用（`input/iconEdit.ts`）。判据与
+ * {@link parseModifiers} **完全共用** `asSize` / `asColor`——菜单认的和渲染认的
+ * 必须是同一套正则，否则会出现「菜单以为这段是颜色、于是替换掉，而渲染本来
+ * 根本不认它」这种用户无法理解的行为。
+ *
+ * 顺序同样是「先尺寸再颜色」，与 {@link parseModifiers} 一致。
+ */
+export function classifyModifier(modifier: string): ModifierKind {
+	if (asSize(modifier) !== null) return "size";
+	if (asColor(modifier) !== null) return "color";
+	return null;
+}
+
+/**
+ * 把一串修饰符里的**颜色**换成 `color`，其余段原样保留。
+ *
+ * 这是「改现有记号」不丢用户已写内容的关键：用户那段
+ * `` `icon:CI-mdi-outlined-123,1.5em,#ab05cc` `` 在只换图标时颜色与尺寸都得还在，
+ * 只改颜色时尺寸也得还在。
+ *
+ * 两条语义值得记下：
+ *
+ * - **滤掉全部颜色段再把新的追加到末尾**，不做「就地替换第一段」。因为修饰符规则是
+ *   「同类后者胜出」，就地改第一段的话后面那段会继续赢，用户看不到自己选的颜色。
+ * - **认不出的段一律保留**。那是用户亲手写的字（可能是将来才支持的写法，也可能是
+ *   笔误），静默删掉比留着糟糕得多。
+ *
+ * @param color `null` = 删除全部颜色段（回到跟随正文色）。
+ */
+export function replaceColorModifier(
+	modifiers: readonly string[],
+	color: string | null,
+): string[] {
+	const kept = modifiers.filter(
+		(modifier) => classifyModifier(modifier) !== "color",
+	);
+	return color === null ? kept : [...kept, color];
+}
+
+/**
+ * 取最后一个颜色段的**原始文本**，供打开选择器时预填色板。
+ *
+ * 「最后一个」与「同类后者胜出」一致——那正是当前生效的颜色。
+ *
+ * **要原始段而不是 {@link parseModifiers} 的产物**：后者会把 `--text-accent`
+ * 归一成 `var(--text-accent)`，而调用方接着要判断「这是不是 hex」
+ * （提供方的色板是 `<input type="color">`，只吃 `#rrggbb`）。
+ */
+export function findColorModifier(modifiers: readonly string[]): string | null {
+	for (let i = modifiers.length - 1; i >= 0; i -= 1) {
+		if (classifyModifier(modifiers[i]) === "color") return modifiers[i];
+	}
+	return null;
+}
+
 /**
  * 解释一串修饰符。
  *
