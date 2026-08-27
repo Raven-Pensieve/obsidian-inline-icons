@@ -70,6 +70,38 @@ describe("filterCandidates", () => {
 	});
 });
 
+describe("filterCandidates：写了来源段之后允许空 query", () => {
+	it("allowEmptyQuery 时列出整池，按字典序（不按长度）", () => {
+		expect(
+			labels(
+				filterCandidates(CATALOG, "", [], 30, { allowEmptyQuery: true }),
+			),
+		).toEqual(["home", "my-sun-logo", "sun", "sunrise", "sunset"]);
+	});
+
+	it("浏览时最近使用过的仍然排最前", () => {
+		expect(
+			labels(
+				filterCandidates(CATALOG, "", ["lucide-sunset"], 30, {
+					allowEmptyQuery: true,
+				}),
+			),
+		).toEqual(["sunset", "home", "my-sun-logo", "sun", "sunrise"]);
+	});
+
+	it("仍然守着上限", () => {
+		expect(
+			filterCandidates(CATALOG, "", [], 2, { allowEmptyQuery: true }),
+		).toHaveLength(2);
+	});
+
+	it("没开 allowEmptyQuery 时空 query 依旧什么都不给", () => {
+		expect(
+			filterCandidates(CATALOG, "", [], 30, { allowEmptyQuery: false }),
+		).toEqual([]);
+	});
+});
+
 describe("withRecent", () => {
 	it("挪到最前并去重", () => {
 		expect(withRecent(["a", "b", "c"], "c")).toEqual(["c", "a", "b"]);

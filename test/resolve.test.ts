@@ -161,6 +161,90 @@ describe("catalog", () => {
 	});
 });
 
+describe("catalogFor：写了来源段之后只列那个来源", () => {
+	const resolver = resolverFor(WITH_CUSTOM_ICONS);
+	const labelsOf = (source: string | null) =>
+		resolver
+			.catalogFor(source)
+			.map((candidate) => candidate.label)
+			.sort();
+
+	it("ci: 列全部用户 SVG，label 是 CI- 之后的整段", () => {
+		expect(labelsOf("ci")).toEqual([
+			"lucide-sun-medium",
+			"mdi-account-circle",
+			"mdi-home",
+			"my-logo",
+			"ph-home",
+		]);
+	});
+
+	it("lucide: 内置 + CI-lucide-* 图标包，label 各自去掉前缀", () => {
+		expect(labelsOf("lucide")).toEqual([
+			"alarm-clock",
+			"home",
+			"sun",
+			"sun-medium",
+		]);
+		expect(
+			resolver
+				.catalogFor("lucide")
+				.find((candidate) => candidate.label === "sun-medium"),
+		).toEqual({
+			id: "CI-lucide-sun-medium",
+			label: "sun-medium",
+			source: "custom-icons",
+		});
+	});
+
+	it("lucide: 同名时内置胜出（与解析链的两级回退一致）", () => {
+		const withBoth = resolverFor([...WITH_CUSTOM_ICONS, "CI-lucide-sun"]);
+		expect(
+			withBoth
+				.catalogFor("lucide")
+				.filter((candidate) => candidate.label === "sun"),
+		).toEqual([{ id: "lucide-sun", label: "sun", source: "builtin" }]);
+	});
+
+	it("包 id: 只列那个包，label 去掉 CI-<packId>-", () => {
+		expect(labelsOf("mdi")).toEqual(["account-circle", "home"]);
+		expect(labelsOf("ph")).toEqual(["home"]);
+	});
+
+	it("认不出的来源段给空列表（补全自然什么都不显示）", () => {
+		expect(resolver.catalogFor("nope")).toEqual([]);
+	});
+
+	it("不写来源段就是完整候选池", () => {
+		expect(resolver.catalogFor(null)).toEqual(resolver.catalog());
+		expect(resolver.catalog()).toHaveLength(WITH_CUSTOM_ICONS.length);
+	});
+
+	it("每个来源各自缓存一次，invalidate 一起作废", () => {
+		const getIconIds = jest.fn(() => [...WITH_CUSTOM_ICONS]);
+		const lazy = new IconResolver(getIconIds);
+
+		lazy.catalogFor("mdi");
+		lazy.catalogFor("mdi");
+		lazy.catalogFor("ci");
+		expect(getIconIds).toHaveBeenCalledTimes(1);
+
+		lazy.invalidate();
+		lazy.catalogFor("mdi");
+		expect(getIconIds).toHaveBeenCalledTimes(2);
+	});
+
+	it("列出来的每一条都真能被「来源段 + label」解析回自己", () => {
+		for (const source of ["ci", "lucide", "mdi", "ph"]) {
+			for (const candidate of resolver.catalogFor(source)) {
+				expect(
+					resolver.resolve(token(`icon:${source}:${candidate.label}`)),
+				).toBe(candidate.id);
+			}
+		}
+	});
+});
+
 describe("tokenFor：补全写进文件的形态", () => {
 	const resolver = resolverFor(WITH_CUSTOM_ICONS);
 
@@ -197,5 +281,20 @@ describe("tokenFor：补全写进文件的形态", () => {
 		expect(resolver.tokenFor("lucide-sun", { prefix: "ico" })).toBe(
 			"`ico:sun`",
 		);
+	});
+
+	it("用户自己写了来源段就保留它，不改写成更短的形态", () => {
+		expect(
+			resolver.tokenFor("CI-mdi-home", {}, { source: "mdi", name: "home" }),
+		).toBe("`icon:mdi:home`");
+		expect(
+			resolver.tokenFor("CI-my-logo", {}, { source: "ci", name: "my-logo" }),
+		).toBe("`icon:ci:my-logo`");
+	});
+
+	it("来源段拼不回同一个 id 时忽略它，退回最短形态", () => {
+		expect(
+			resolver.tokenFor("CI-mdi-home", {}, { source: "ph", name: "home" }),
+		).toBe("`icon:mdi-home`");
 	});
 });
