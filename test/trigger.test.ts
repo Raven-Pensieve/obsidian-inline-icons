@@ -45,14 +45,20 @@ describe("正在敲一个新记号", () => {
 		expect(replaced("今天 icon:| 很好")).toBe("icon:");
 	});
 
-	it("单字符别名光秃秃一个冒号不弹（英文提纲 `I: Introduction`）", () => {
-		expect(at("i:|")).toBeNull();
-		// 敲了字母、或写了来源段就不受此限
+	it("单字符别名光秃秃一个冒号也弹（前缀和别名一视同仁）", () => {
+		expect(at("i:|")).toEqual({
+			start: 0,
+			end: 2,
+			source: null,
+			query: "",
+		});
+		expect(replaced("今天 i:| 很好")).toBe("i:");
+		// 敲了字母、或写了来源段自然照弹
 		expect(at("i:s|")).toMatchObject({ query: "s" });
 		expect(at("i:ci:|")).toMatchObject({ source: "ci", query: "" });
 	});
 
-	it("两字以上的自定义别名光秃秃一个冒号也弹", () => {
+	it("自定义多字符别名光秃秃一个冒号也弹", () => {
 		expect(at("ii:|", { prefix: "icon", alias: "ii" })).toMatchObject({
 			source: null,
 			query: "",
