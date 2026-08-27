@@ -128,3 +128,74 @@ describe("sourceOf", () => {
 		expect(IconResolver.sourceOf("CI-mdi-home")).toBe("custom-icons");
 	});
 });
+
+describe("catalog", () => {
+	const resolver = resolverFor(WITH_CUSTOM_ICONS);
+
+	it("展示名去掉注册前缀，并标出来源", () => {
+		const catalog = resolver.catalog();
+		expect(catalog).toHaveLength(WITH_CUSTOM_ICONS.length);
+		expect(catalog).toContainEqual({
+			id: "lucide-sun",
+			label: "sun",
+			source: "builtin",
+		});
+		expect(catalog).toContainEqual({
+			id: "CI-mdi-home",
+			label: "mdi-home",
+			source: "custom-icons",
+		});
+	});
+
+	it("惰性建立且缓存，invalidate 后重建", () => {
+		const getIconIds = jest.fn(() => [...BUILTIN_ONLY]);
+		const lazy = new IconResolver(getIconIds);
+
+		lazy.catalog();
+		lazy.catalog();
+		expect(getIconIds).toHaveBeenCalledTimes(1);
+
+		lazy.invalidate();
+		lazy.catalog();
+		expect(getIconIds).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe("tokenFor：补全写进文件的形态", () => {
+	const resolver = resolverFor(WITH_CUSTOM_ICONS);
+
+	it("取最短形态，并且带上那一对反引号", () => {
+		expect(resolver.tokenFor("lucide-sun")).toBe("`icon:sun`");
+		expect(resolver.tokenFor("CI-my-logo")).toBe("`icon:my-logo`");
+	});
+
+	it("名字被别处抢先时退一步钉死来源", () => {
+		// 用户导入了一个也叫 sun 的 SVG：单段的 icon:sun 会解析到内置的 lucide-sun，
+		// 所以这个用户 SVG 必须写成钉死形态才能指到它自己
+		const withCollision = resolverFor([
+			...WITH_CUSTOM_ICONS,
+			"CI-sun",
+		]);
+		expect(withCollision.tokenFor("CI-sun")).toBe("`icon:ci:sun`");
+		expect(withCollision.resolve(token("icon:ci:sun"))).toBe("CI-sun");
+		expect(withCollision.resolve(token("icon:sun"))).toBe("lucide-sun");
+	});
+
+	it("包图标的完整 body 不与内置撞名，所以仍是最短形态", () => {
+		expect(resolver.tokenFor("CI-mdi-home")).toBe("`icon:mdi-home`");
+		expect(resolver.resolve(token("icon:mdi-home"))).toBe("CI-mdi-home");
+	});
+
+	it("写出来的记号一定解析回同一个 id（往返校验）", () => {
+		for (const id of WITH_CUSTOM_ICONS) {
+			const body = resolver.tokenFor(id).slice(1, -1);
+			expect(resolver.resolve(token(body))).toBe(id);
+		}
+	});
+
+	it("跟随自定义前缀", () => {
+		expect(resolver.tokenFor("lucide-sun", { prefix: "ico" })).toBe(
+			"`ico:sun`",
+		);
+	});
+});

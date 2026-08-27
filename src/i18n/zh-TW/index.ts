@@ -60,6 +60,20 @@ const zh_TW = {
 			button: "重設",
 		},
 	},
+	ui: {
+		unresolved: "找不到圖示「{name}」",
+		sourceBuiltin: "Obsidian 內建",
+		sourceCustomIcons: "Custom Icons",
+	},
+	commands: {
+		insertIcon: {
+			name: "插入圖示",
+			placeholder: "搜尋圖示…",
+		},
+		reapply: {
+			name: "重新渲染本文件的圖示",
+		},
+	},
 } satisfies BaseTranslation;
 
 export default zh_TW;

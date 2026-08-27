@@ -17,7 +17,13 @@
  * 本模块只依赖一个 `() => string[]`（生产环境传 obsidian 的 `getIconIds`），
  * 所以可以用假注册表完整单测。
  */
-import { SOURCE_CI, SOURCE_LUCIDE, type IconToken } from "./grammar";
+import {
+	formatCodeSpan,
+	SOURCE_CI,
+	SOURCE_LUCIDE,
+	type GrammarOptions,
+	type IconToken,
+} from "./grammar";
 
 /** Custom Icons 注册进 Obsidian 的图标 id 一律带这个前缀。 */
 export const CI_PREFIX = "CI-";
@@ -27,6 +33,22 @@ export const LUCIDE_PREFIX = "lucide-";
 
 /** 图标 id 的来源，供补全分组用。 */
 export type IconIdSource = "builtin" | "custom-icons";
+
+/** 补全候选：一个可用图标的 id、展示名与来源。 */
+export interface IconCandidate {
+	/** Obsidian 注册表里的 id，如 `lucide-sun` / `CI-mdi-home`。 */
+	id: string;
+	/** 展示名：去掉 `lucide-` / `CI-` 前缀后的部分。 */
+	label: string;
+	source: IconIdSource;
+}
+
+/** 去掉注册前缀，得到给人看的名字。 */
+export function labelOf(id: string): string {
+	if (id.startsWith(CI_PREFIX)) return id.slice(CI_PREFIX.length);
+	if (id.startsWith(LUCIDE_PREFIX)) return id.slice(LUCIDE_PREFIX.length);
+	return id;
+}
 
 /** 注册表快照的提供者；生产环境就是 obsidian 的 `getIconIds`。 */
 export type IconIdProvider = () => string[];
@@ -52,6 +74,9 @@ export class IconResolver {
 	 */
 	#packIndex: Map<string, string> | null = null;
 
+	/** 补全候选池，惰性建立。 */
+	#catalog: IconCandidate[] | null = null;
+
 	/** `source|name` → 命中的 id（`null` 表示确认解析不出来，同样要缓存）。 */
 	readonly #cache = new Map<string, string | null>();
 
@@ -63,6 +88,7 @@ export class IconResolver {
 	invalidate(): void {
 		this.#ids = null;
 		this.#packIndex = null;
+		this.#catalog = null;
 		this.#cache.clear();
 	}
 
@@ -80,6 +106,50 @@ export class IconResolver {
 	/** 某个 id 是否在注册表里。 */
 	has(id: string): boolean {
 		return this.#idSet().has(id);
+	}
+
+	/**
+	 * 全部可用图标，供补全与插入命令列表用。惰性建立，随 {@link invalidate} 一起作废。
+	 *
+	 * 顺序沿用 `getIconIds()`，调用方自己排序（最近使用优先等）。
+	 */
+	catalog(): readonly IconCandidate[] {
+		this.#catalog ??= [...this.#idSet()].map((id) => ({
+			id,
+			label: labelOf(id),
+			source: IconResolver.sourceOf(id),
+		}));
+		return this.#catalog;
+	}
+
+	/**
+	 * 给一个图标 id 生成**写进文件的记号**（含那对反引号）。
+	 *
+	 * 取「能解析回同一个 id 的最短形态」：
+	 *
+	 * 1. `` `icon:sun` `` —— 不写来源段，最好读；
+	 * 2. `` `icon:ci:xxx` `` / `` `icon:lucide:xxx` `` —— 名字被别处抢先时（例如
+	 *    `home` 同时存在于内置与 `mdi` 包）退一步钉死来源；
+	 * 3. `` `icon:CI-mdi-home` `` —— 兜底写完整 id，解析链第一步就能命中。
+	 *
+	 * 用真实解析器做**往返校验**，所以不会写出一个渲染成别的图标的记号。
+	 */
+	tokenFor(id: string, options: GrammarOptions = {}): string {
+		const label = labelOf(id);
+		const pinned = id.startsWith(CI_PREFIX) ? SOURCE_CI : SOURCE_LUCIDE;
+		const fallback: IconToken = { source: null, name: id, modifiers: [] };
+		const candidates: IconToken[] = [
+			{ source: null, name: label, modifiers: [] },
+			{ source: pinned, name: label, modifiers: [] },
+			fallback,
+		];
+
+		for (const candidate of candidates) {
+			if (this.resolve(candidate) === id) {
+				return formatCodeSpan(candidate, options);
+			}
+		}
+		return formatCodeSpan(fallback, options);
 	}
 
 	/** 一个 id 来自哪里，供补全分组显示。 */

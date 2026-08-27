@@ -8,9 +8,21 @@ importers:
 
   .:
     devDependencies:
+      '@codemirror/language':
+        specifier: ^6.12.4
+        version: 6.12.4
+      '@codemirror/state':
+        specifier: ^6.5.0
+        version: 6.5.0
+      '@codemirror/view':
+        specifier: ^6.38.6
+        version: 6.38.6
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.9.1)
+      '@lezer/common':
+        specifier: ^1.5.2
+        version: 1.5.2
       '@obsidian-typings/obsidian-catalyst-latest':
         specifier: ^6.23.0
         version: 6.23.0(@types/node@26.3.0)
@@ -232,6 +244,9 @@ packages:
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
+
+  '@codemirror/language@6.12.4':
+    resolution: {integrity: sha512-1q4PaT+o6PbgpkJt4Q8Fv5XJxTy4FUZ4MWETtyiDw3J0Pyr9E2vqcKL+k9wcvjNTIsauxvE7OfmWj3FRPHQ76A==}
 
   '@codemirror/state@6.5.0':
     resolution: {integrity: sha512-MwBHVK60IiIHDcoMet78lxt6iw5gJOGSbNbOIVBHWVXIH4/Nq1+GQgLLGgI1KlnN86WDXsPudVaqYHKBIx7Eyw==}
@@ -620,6 +635,15 @@ packages:
     engines: {node: '>= 10.16.0'}
     peerDependencies:
       jsep: ^0.4.0||^1.0.0
+
+  '@lezer/common@1.5.2':
+    resolution: {integrity: sha512-sxQE460fPZyU3sdc8lafxiPwJHBzZRy/udNFynGQky1SePYBdhkBl1kOagA9uT3pxR8K09bOrmTUqA9wb/PjSQ==}
+
+  '@lezer/highlight@1.2.3':
+    resolution: {integrity: sha512-qXdH7UqTvGfdVBINrgKhDsVTJTxactNNxLk7+UMwZhU13lMHaOBlJe9Vqp907ya56Y3+ed2tlqzys7jDkTmW0g==}
+
+  '@lezer/lr@1.4.10':
+    resolution: {integrity: sha512-rnCpTIBafOx4mRp43xOxDJbFipJm/c0cia/V5TiGlhmMa+wsSdoGmUN3w5Bqrks/09Q/D4tNAmWaT8p6NRi77A==}
 
   '@marijn/find-cluster-break@1.0.3':
     resolution: {integrity: sha512-FY+MKLBoTsLNJF/eLWaOsXGdz6uh3Iu1axjPf6TUq92IYumcTcXWHoS747JARLkcdlJ/Waiaxc5wQfFO8jC6NA==}
@@ -3291,6 +3315,15 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
+  '@codemirror/language@6.12.4':
+    dependencies:
+      '@codemirror/state': 6.5.0
+      '@codemirror/view': 6.38.6
+      '@lezer/common': 1.5.2
+      '@lezer/highlight': 1.2.3
+      '@lezer/lr': 1.4.10
+      style-mod: 4.1.3
+
   '@codemirror/state@6.5.0':
     dependencies:
       '@marijn/find-cluster-break': 1.0.3
@@ -3709,6 +3742,16 @@ snapshots:
   '@jsep-plugin/regex@1.0.4(jsep@1.4.0)':
     dependencies:
       jsep: 1.4.0
+
+  '@lezer/common@1.5.2': {}
+
+  '@lezer/highlight@1.2.3':
+    dependencies:
+      '@lezer/common': 1.5.2
+
+  '@lezer/lr@1.4.10':
+    dependencies:
+      '@lezer/common': 1.5.2
 
   '@marijn/find-cluster-break@1.0.3': {}
 

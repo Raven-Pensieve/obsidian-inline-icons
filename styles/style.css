@@ -35,3 +35,42 @@
 	text-decoration: underline dotted;
 	text-underline-offset: 0.2em;
 }
+
+/*
+ * 补全候选行：EditorSuggest 与插入命令的模态框共用同一套结构
+ *
+ *   <div class="ii-suggest-item">
+ *     <span class="ii-suggest-icon"><svg/></span>
+ *     <span class="ii-suggest-label">sun</span>
+ *     <span class="ii-suggest-source">Obsidian 内置</span>
+ *   </div>
+ */
+
+.ii-suggest-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.ii-suggest-icon {
+	display: inline-flex;
+	flex-shrink: 0;
+}
+
+.ii-suggest-icon svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+.ii-suggest-label {
+	flex: 1;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.ii-suggest-source {
+	flex-shrink: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}

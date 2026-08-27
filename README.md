@@ -4,7 +4,7 @@ English | [中文](https://github.com/Raven-Pensieve/obsidian-inline-icons/blob/
 
 Write an icon into the body of a note. `` `icon:sun` `` renders as an icon, inline with the surrounding text, at the surrounding font size and colour.
 
-> **Status: in development.** The syntax and the scope are settled; the implementation is not shipped yet (milestone M1, see [`dev/roadmap.md`](dev/roadmap.md)). The plugin is not on the community plugin list, and `` `icon:…` `` does nothing until M1 lands.
+> **Status: in development.** The M1 feature set is written — both rendering pipelines, the suggester and the insert command — but **none of it has been verified inside Obsidian yet**, and the plugin is not on the community plugin list. See [`dev/roadmap.md`](dev/roadmap.md) for the verification checklist.
 
 ![GitHub Socialify](https://socialify.git.ci/Raven-Pensieve/obsidian-inline-icons/image?description=1&font=Rokkitt&forks=1&issues=1&language=1&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto)
 
