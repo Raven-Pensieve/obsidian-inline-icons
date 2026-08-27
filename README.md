@@ -42,17 +42,25 @@ Shorthands are accepted too (the plugin tries `<name>`, then `lucide-<name>`, th
 Append modifiers after a comma, **in any order**:
 
 ```md
-`icon:lucide-sun,1.5em`           1.5× the surrounding font size
-`icon:lucide-sun,#e5a50a`         a specific colour
-`icon:lucide-sun,1.5em,red`       both
-`icon:lucide-sun,--text-accent`   a theme variable, so it follows light/dark mode
+`icon:lucide-sun,1.5em`                  1.5× the surrounding font size
+`icon:lucide-sun,#e5a50a`                a specific colour
+`icon:lucide-sun,1.5em,red`              both
+`icon:lucide-sun,rgb(255, 0, 0)`         any CSS colour function, commas and all
+`icon:lucide-sun,light-dark(#eee, #222)` one colour per light/dark mode
+`icon:lucide-sun,--text-accent`          a theme variable, so it follows the theme
+`icon:lucide-sun,clamp(1em, 2vw, 2em)`   a responsive size
 ```
 
-- **Size**: `1.5em` / `20px` / `1rem` / `12pt` / `2ch` / `3ex` — **the unit is required**. Defaults to `1em`, i.e. the surrounding font size.
-- **Colour**: hex (`#e5a50a`), CSS colour names (`red`), space-separated colour functions (`rgb(255 0 0)`, `oklch(0.7 0.1 60)`),
-  and theme variables (`--text-accent`, or spelled out as `var(--text-accent)`). Defaults to the surrounding text colour.
+- **Size**: any CSS length — `1.5em` / `20px` / `.5rem` / `3vw` / `2ch` — plus `calc()`, `min()`, `max()` and `clamp()`.
+  **The unit is required.** Defaults to `1em`, i.e. the surrounding font size. `%` is not accepted (it would resolve
+  against the icon's own box, which does nothing useful).
+- **Colour**: hex (`#e5a50a`), CSS colour names (`red`), and **every common colour function** in either notation —
+  `rgb(255, 0, 0)` and `rgb(255 0 0)`, `hsl(30, 100%, 50%)`, `oklch(0.7 0.15 60)`, `color-mix(in oklch, red 50%, blue)`,
+  `light-dark(#eee, #222)`. Defaults to the surrounding text colour.
+- **Theme variables**: write `--text-accent` (shorthand) or `var(--text-accent)`. A variable name gives no hint of its
+  type, so names that look like sizes (`--icon-l`, `--size-4-2`, `--nav-item-size`) are treated as sizes and everything
+  else as a colour. To settle it yourself, prefix the value: `size:--my-length` or `color:--my-brand`.
 - An unrecognised modifier is **simply ignored** — a typo in the colour never makes the whole token fall back to plain text.
-- The comma is the separator, so the comma form `rgb(1,2,3)` cannot be used; write `rgb(1 2 3)` or hex instead.
 
 Typing it does **not** require typing backticks: type `i:su`, pick from the suggester, and the plugin writes `` `icon:sun` `` including the pair of backticks. There is also a command (bind your own hotkey) that opens a fuzzy search over every available icon.
 

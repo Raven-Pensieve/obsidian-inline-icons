@@ -74,6 +74,58 @@ describe("parseTokenBody", () => {
 		expect(parseTokenBody("icon:sun, 1em , ")?.modifiers).toEqual(["1em"]);
 	});
 
+	describe("修饰符区按括号外的逗号切分", () => {
+		it("括号内的逗号不切——颜色函数因此能用逗号写法", () => {
+			expect(parseTokenBody("icon:sun,rgb(255, 0, 0)")?.modifiers).toEqual([
+				"rgb(255, 0, 0)",
+			]);
+			expect(parseTokenBody("icon:sun,hsl(30, 100%, 50%)")?.modifiers).toEqual(
+				["hsl(30, 100%, 50%)"],
+			);
+		});
+
+		it("括号外的逗号照旧切", () => {
+			expect(
+				parseTokenBody("icon:sun,rgb(1, 2, 3),1.5em")?.modifiers,
+			).toEqual(["rgb(1, 2, 3)", "1.5em"]);
+		});
+
+		it("嵌套括号只按最外层的深度算", () => {
+			expect(
+				parseTokenBody(
+					"icon:sun,color-mix(in oklch, var(--a, red) 60%, var(--b))",
+				)?.modifiers,
+			).toEqual(["color-mix(in oklch, var(--a, red) 60%, var(--b))"]);
+		});
+
+		it("括号不配平时余下整段当一段（结果仍是「认不出→忽略」）", () => {
+			expect(parseTokenBody("icon:sun,rgb(1,2")?.modifiers).toEqual([
+				"rgb(1,2",
+			]);
+			// 多余的右括号不让深度变负，否则后面的顶层逗号会被永久吞掉
+			expect(parseTokenBody("icon:sun,rgb(1,2)),1.5em")?.modifiers).toEqual([
+				"rgb(1,2))",
+				"1.5em",
+			]);
+		});
+
+		it("id 段仍按第一个逗号切，不参与括号感知", () => {
+			// 用户 SVG 的 id 取自文件名，可能含**不配平**的括号（`CI-a(` 是合法文件名）。
+			// 让 id 段参与括号计数就会把后面的修饰符吃进 id，而 id 段不允许逗号，
+			// 于是整条记号解析失败——比切碎颜色更糟
+			expect(parseTokenBody("icon:CI-a(,red")).toEqual({
+				source: null,
+				name: "CI-a(",
+				modifiers: ["red"],
+			});
+			expect(parseTokenBody("icon:CI-logo (dark),1.5em")).toEqual({
+				source: null,
+				name: "CI-logo (dark)",
+				modifiers: ["1.5em"],
+			});
+		});
+	});
+
 	it.each([
 		["", "空串"],
 		["icon", "只有前缀"],
@@ -172,6 +224,11 @@ describe("formatTokenBody / formatCodeSpan", () => {
 			"icon:ci:my-logo",
 			"icon:mdi:home",
 			"icon:lucide:sun,1.5em",
+			// 括号内的逗号：切分不断开，拼回去必须逐字相同
+			"icon:sun,rgb(255, 0, 0)",
+			"icon:sun,color-mix(in oklch, red 50%, blue),1.5em",
+			// 括号不配平的病态段同样拼得回去（余下整段当一段）
+			"icon:sun,rgb(1,2",
 		]) {
 			const token = parseTokenBody(body);
 			expect(token).not.toBeNull();

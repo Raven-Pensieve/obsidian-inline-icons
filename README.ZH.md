@@ -43,17 +43,24 @@
 在记号后面用逗号追加修饰符，**顺序随意**：
 
 ```md
-`icon:lucide-sun,1.5em`           放大到 1.5 倍字号
-`icon:lucide-sun,#e5a50a`         指定颜色
-`icon:lucide-sun,1.5em,red`       两者一起
-`icon:lucide-sun,--text-accent`   用主题变量，跟着深浅色主题自动换
+`icon:lucide-sun,1.5em`                  放大到 1.5 倍字号
+`icon:lucide-sun,#e5a50a`                指定颜色
+`icon:lucide-sun,1.5em,red`              两者一起
+`icon:lucide-sun,rgb(255, 0, 0)`         任意 CSS 颜色函数，逗号写法照样能用
+`icon:lucide-sun,light-dark(#eee, #222)` 深浅色主题各给一个色
+`icon:lucide-sun,--text-accent`          用主题变量，跟着主题自动换
+`icon:lucide-sun,clamp(1em, 2vw, 2em)`   响应式尺寸
 ```
 
-- **尺寸**：`1.5em` / `20px` / `1rem` / `12pt` / `2ch` / `3ex`，**单位要写出来**。默认 `1em`，也就是跟随周围字号。
-- **颜色**：十六进制（`#e5a50a`）、CSS 颜色名（`red`）、空格写法的颜色函数（`rgb(255 0 0)` / `oklch(0.7 0.1 60)`），
-  以及主题变量（`--text-accent`，也可以写全 `var(--text-accent)`）。默认跟随周围文字颜色。
+- **尺寸**：任意 CSS 长度——`1.5em` / `20px` / `.5rem` / `3vw` / `2ch`，另外还认 `calc()` / `min()` / `max()` / `clamp()`。
+  **单位要写出来**，默认 `1em`（跟随周围字号）。不认 `%`：百分比相对图标自己那个盒子算，写了没有意义。
+- **颜色**：十六进制（`#e5a50a`）、CSS 颜色名（`red`），以及**全部常用颜色函数**，两种写法都行——
+  `rgb(255, 0, 0)` 与 `rgb(255 0 0)`、`hsl(30, 100%, 50%)`、`oklch(0.7 0.15 60)`、
+  `color-mix(in oklch, red 50%, blue)`、`light-dark(#eee, #222)`。默认跟随周围文字颜色。
+- **主题变量**：写 `--text-accent`（简写）或 `var(--text-accent)`。变量名本身不说明自己是颜色还是长度，
+  所以名字看起来像尺寸的（`--icon-l` / `--size-4-2` / `--nav-item-size`）判成尺寸，其余判成颜色。
+  想自己点明就加前缀：`size:--my-length` 或 `color:--my-brand`。
 - 写错的修饰符**只是被忽略**，图标照常显示——不会因为颜色打错而整条记号退回原文。
-- 逗号是分隔符，所以 `rgb(1,2,3)` 这种逗号写法用不了，改用空格写法 `rgb(1 2 3)` 或十六进制。
 
 **输入时不需要自己敲反引号**：敲 `i:su` 弹出候选，回车后插件会把 `` `icon:sun` `` 连同那一对反引号整段写进去。另有一个命令（快捷键自己绑）打开模糊搜索，列出全部可用图标。
 
