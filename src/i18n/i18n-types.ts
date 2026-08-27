@@ -94,6 +94,20 @@ type RootTranslation = {
 		 */
 		sourceUserSvg: string
 	}
+	menu: {
+		/**
+		 * 插​入​图​标​…
+		 */
+		insertIcon: string
+		/**
+		 * 更​换​图​标​…
+		 */
+		replaceIcon: string
+		/**
+		 * 移​除​图​标
+		 */
+		removeIcon: string
+	}
 	commands: {
 		insertIcon: {
 			/**
@@ -207,6 +221,20 @@ export type TranslationFunctions = {
 		 * 我的 SVG
 		 */
 		sourceUserSvg: () => LocalizedString
+	}
+	menu: {
+		/**
+		 * 插入图标…
+		 */
+		insertIcon: () => LocalizedString
+		/**
+		 * 更换图标…
+		 */
+		replaceIcon: () => LocalizedString
+		/**
+		 * 移除图标
+		 */
+		removeIcon: () => LocalizedString
 	}
 	commands: {
 		insertIcon: {

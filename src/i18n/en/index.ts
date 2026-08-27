@@ -31,6 +31,11 @@ const en = {
 		sourceCustomIcons: "Custom Icons",
 		sourceUserSvg: "My SVGs",
 	},
+	menu: {
+		insertIcon: "Insert icon…",
+		replaceIcon: "Change icon…",
+		removeIcon: "Remove icon",
+	},
 	commands: {
 		insertIcon: {
 			name: "Insert icon",

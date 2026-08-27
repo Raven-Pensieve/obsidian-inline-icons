@@ -1,4 +1,5 @@
-import { escapeRegExp, parseTokenBody } from "@src/syntax/grammar";
+import { escapeRegExp } from "@src/syntax/grammar";
+import { locateTokenAt } from "@src/syntax/locate";
 
 /**
  * 补全的触发判定——**纯函数，不碰 DOM、不 import obsidian**，所以可单测。
@@ -70,29 +71,32 @@ export function matchTrigger(
 	);
 }
 
+/**
+ * 光标落在一个已存在的记号里。
+ *
+ * 配对逻辑走 {@link locateTokenAt}，**不在这里自己找反引号**：右键菜单要的是同一个
+ * 判定，两处各写一遍就会出现「菜单能改但补全不认」这类不一致。
+ *
+ * `includeEdges` 保持默认的 `false`：光标贴在记号外侧时不该弹出「替换整个记号」的
+ * 候选——那时用户是在记号旁边打字，该走 {@link matchWhileTyping}。菜单那条路径才开。
+ */
 function matchInsideSpan(
 	line: string,
 	cursorCh: number,
 	options: TriggerOptions,
 ): TriggerMatch | null {
-	const open = line.lastIndexOf("`", cursorCh - 1);
-	if (open < 0) return null;
-
-	const close = line.indexOf("`", cursorCh);
-	if (close < 0) return null;
-
-	const body = line.slice(open + 1, close);
 	// 记号体既认正式前缀，也认输入别名（用户可能把别名敲进了反引号里）
-	const token =
-		parseTokenBody(body, { prefix: options.prefix }) ??
-		parseTokenBody(body, { prefix: options.alias });
-	if (token === null) return null;
+	const located = locateTokenAt(line, cursorCh, [
+		options.prefix,
+		options.alias,
+	]);
+	if (located === null) return null;
 
 	return {
-		start: open,
-		end: close + 1,
-		source: token.source,
-		query: token.name,
+		start: located.start,
+		end: located.end,
+		source: located.token.source,
+		query: located.token.name,
 	};
 }
 

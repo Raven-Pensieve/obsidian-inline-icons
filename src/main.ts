@@ -4,6 +4,8 @@ import {
 	onCustomIconsChanged,
 } from "@src/api/customIcons";
 import { LL } from "@src/i18n/i18n";
+import { registerEditorMenu } from "@src/input/editorMenu";
+import { locateIconTarget } from "@src/input/iconEdit";
 import { IconSuggest } from "@src/input/IconSuggest";
 import { InsertIconModal } from "@src/input/InsertIconModal";
 import { pickIconIntoEditor } from "@src/input/pickIcon";
@@ -21,14 +23,17 @@ import { getIconIds, MarkdownView, Plugin, type Editor } from "obsidian";
 /**
  * Inline Icons —— 把图标写进笔记正文。
  *
- * onload 注册四件东西，正好对应文档里的两条渲染管线与两条输入路径：
+ * onload 注册的东西对应文档里的两条渲染管线与**四条**输入路径：
  *
  * | 注册项 | 覆盖 |
  * | --- | --- |
  * | `registerMarkdownPostProcessor` | 阅读模式、内嵌、悬浮预览、Canvas、导出 PDF |
  * | `registerEditorExtension` | 实时预览（源码模式故意不渲染） |
  * | `registerEditorSuggest` | 敲 `i:su` 弹候选，反引号由插件补 |
- * | `addCommand` | 模糊搜索插入 + 重新渲染本文档 |
+ * | `addCommand` × 3 | 模糊搜索插入、图标选择器（兼「更换」）、重新渲染本文档 |
+ * | `editor-menu` | 右键插入 / 更换 / 移除 |
+ *
+ * 四条输入路径最终都汇到 `input/iconEdit.ts` 那个唯一写盘口。
  */
 export default class InlineIconsPlugin extends Plugin {
 	settings: IPluginSettings;
@@ -68,17 +73,22 @@ export default class InlineIconsPlugin extends Plugin {
 		this.registerMarkdownPostProcessor(createPostProcessor(this));
 		this.registerEditorExtension(inlineIconsExtension(this));
 
-		// 两条输入路径
+		// 前两条输入路径
 		this.registerEditorSuggest(new IconSuggest(this));
 		this.addCommand({
 			id: "insert-icon",
 			name: LL.commands.insertIcon.name(),
 			editorCallback: (editor: Editor) => {
+				// 这条**故意只插入**：它是「敲不出触发序列」时的兜底，
+				// 语义要简单可预期。改现有记号走下面那条或右键菜单
 				new InsertIconModal(this, editor).open();
 			},
 		});
 		// 第三条：借 Custom Icons 的图标选择器（分组网格 + 收藏/最近跨插件共享）。
-		// 提供方不在场时它退回上面那个模糊搜索，所以命令始终可用
+		// 提供方不在场时它退回上面那个模糊搜索，所以命令始终可用。
+		//
+		// **光标落在已有记号里时它是「更换」而不是「插入」**：命令与右键菜单共用
+		// `locateIconTarget`，否则会出现「右键说能改、命令却在旁边插了一个新的」
 		this.addCommand({
 			id: "pick-icon",
 			name: LL.commands.pickIcon.name(),
@@ -89,10 +99,13 @@ export default class InlineIconsPlugin extends Plugin {
 				pickIconIntoEditor(
 					this,
 					editor,
+					locateIconTarget(this, editor),
 					ctx instanceof MarkdownView ? ctx.containerEl : undefined,
 				);
 			},
 		});
+		// 第四条：编辑器右键菜单（插入 / 更换 / 移除）
+		this.registerEvent(registerEditorMenu(this));
 		// 用户自救入口：图标包刚装好、或某处没跟上时手动刷一遍
 		this.addCommand({
 			id: "reapply-icons",
