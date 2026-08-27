@@ -1,7 +1,7 @@
 /**
  * Custom Icons 跨插件 API 的**消费侧适配器**。
  *
- * 契约本身在 [`src/type/custom-icons-api.d.ts`](../type/custom-icons-api.d.ts)，
+ * 契约本身在 [`src/api/custom-icons-api.d.ts`](./custom-icons-api.d.ts)，
  * 那是从提供方仓库逐字复制来的 `.d.ts`（不发 npm 包是刻意的：零构建耦合，
  * 运行期靠 `version` 守卫）。本模块是它的运行时入口，把三件事收在一处：
  *
@@ -16,7 +16,8 @@ import { Events, type App, type EventRef } from "obsidian";
 import type {
 	CustomIconsApi,
 	CustomIconsChangedPayload,
-} from "@src/type/custom-icons-api";
+} from "@src/api/custom-icons-api";
+import type { PackIconsProvider } from "@src/syntax/resolve";
 
 /** 提供方的插件 id。 */
 export const CUSTOM_ICONS_PLUGIN_ID = "custom-sidebar-icons";
@@ -50,6 +51,48 @@ export function getCustomIconsApi(app: App): CustomIconsApi | null {
 	const api = provider?.api;
 	// 版本守卫是契约的一部分：v2 会与 v1 并存一个大版本，届时这里要显式放行
 	return api?.version === 1 ? api : null;
+}
+
+/**
+ * 「某个图标包里有哪些图标」的权威查询，接契约的 `catalog()`。
+ *
+ * 为什么必须问提供方而不是自己按 `CI-<packId>-` 前缀筛：那个前缀会把**另一个包**
+ * 的图标一并捞进来（装了 `mdi` 与 `mdi-light` 时，`CI-mdi-light-home` 也以
+ * `CI-mdi-` 开头），也认不出「包已停用但图标还在注册表里」。契约的分组来自
+ * 已启用包的 manifest，没有任何猜测——这正是那句「切分点由提供方回答」的用处。
+ *
+ * **按 `revision` 缓存**：`catalog()` 一次会摊出全部图标（装了几个 Iconify 包就是
+ * 上万条），而补全每敲一个来源段就要问一次。`revision` 只在注册表真的动过之后才变，
+ * 正好是这份索引的失效条件——契约把它设计成「给消费方的派生缓存打标」就是为了这个。
+ * 不存盘（进程内单调递增，重启归零）。
+ *
+ * 三态返回值的语义见 `syntax/resolve.ts` 的 `PackIconsProvider`。关键是
+ * **提供方在场但没有这个包时返回 `[]` 而不是 `null`**：那是「答了：没这个包」，
+ * 退回前缀匹配会把上面那个 bug 又放回来。
+ */
+export function createPackIconsProvider(app: App): PackIconsProvider {
+	let cache: {
+		revision: number;
+		packs: Map<string, readonly string[]>;
+	} | null = null;
+
+	return (packId: string) => {
+		const api = getCustomIconsApi(app);
+		// 提供方不在场 = 答不了，交给调用方退回前缀匹配（裸装下那也是空列表）
+		if (!api) return null;
+
+		if (!cache || cache.revision !== api.revision) {
+			const packs = new Map<string, readonly string[]>();
+			// 只收图标包那些段：`lucide` 与 `svg` 段的 packId 是 undefined，
+			// 而它们对应的来源段（`lucide:` / `ci:`）前缀本来就无歧义，不需要问
+			for (const group of api.catalog()) {
+				if (group.packId) packs.set(group.packId, group.ids);
+			}
+			cache = { revision: api.revision, packs };
+		}
+
+		return cache.packs.get(packId) ?? [];
+	};
 }
 
 /**

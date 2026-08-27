@@ -9,8 +9,8 @@ import { join } from "path";
  * | 文件 | 角色 | 谁看着 |
  * | --- | --- | --- |
  * | `obsidian-custom-icons/src/api/types.ts` | 权威源码 | 提供方的守卫 |
- * | `obsidian-custom-icons/dev/ecosystem/custom-icons-api.d.ts` | 给消费方复制的副本 | 同上 |
- * | **本仓库 `src/type/custom-icons-api.d.ts`** | 复制过来的那份 | **本文件** |
+ * | `obsidian-custom-icons/docs/custom-icons-api.d.ts` | 给消费方复制的发布副本 | 同上 |
+ * | **本仓库 `src/api/custom-icons-api.d.ts`** | 复制过来的那份 | **本文件** |
  *
  * 没有这一条，提供方改契约时本仓库**不会有任何反应**：tsc 拿本地那份旧类型编译，
  * 一路绿灯，直到运行时才表现为「类型说有某个字段、实际没有」——而这类不一致的代价
@@ -24,22 +24,31 @@ import { join } from "path";
 const ROOT = join(__dirname, "..");
 
 /** 本仓库这份（消费侧实际编译的那个文件） */
-const LOCAL_COPY = join(ROOT, "src", "type", "custom-icons-api.d.ts");
+const LOCAL_COPY = join(ROOT, "src", "api", "custom-icons-api.d.ts");
 
 /**
  * 提供方仓库里那份「供消费方复制」的副本。
  *
  * 相对路径假设两个仓库是同级目录（`obsidian-inline-icons` 与
  * `obsidian-custom-icons` 并列），这也是 dev/ 各文档里互相引用的既有约定。
+ *
+ * **优先 `docs/`**：提供方的 `dev/` 整个被 gitignore，而 `docs/` 是它打算提交的
+ * 发布副本——盯已提交的那份，才能在提供方发版时比出漂移。`dev/ecosystem/` 留作
+ * 兜底，那是本方案成文时的落脚处。
  */
-const UPSTREAM_COPY = join(
-	ROOT,
-	"..",
-	"obsidian-custom-icons",
-	"dev",
-	"ecosystem",
-	"custom-icons-api.d.ts",
-);
+const UPSTREAM_CANDIDATES = [
+	join(ROOT, "..", "obsidian-custom-icons", "docs", "custom-icons-api.d.ts"),
+	join(
+		ROOT,
+		"..",
+		"obsidian-custom-icons",
+		"dev",
+		"ecosystem",
+		"custom-icons-api.d.ts",
+	),
+];
+
+const UPSTREAM_COPY = UPSTREAM_CANDIDATES.find((path) => existsSync(path));
 
 /**
  * 归一成「只剩声明」：注释是两边唯一该各写各的地方——上游那份讲「怎么复制过去」，
@@ -54,12 +63,13 @@ function declarationsOf(source: string): string[] {
 		.filter((line) => line !== "");
 }
 
-const suite = existsSync(UPSTREAM_COPY) ? describe : describe.skip;
+const suite = UPSTREAM_COPY ? describe : describe.skip;
 
 suite("契约副本与提供方仓库保持同步", () => {
 	test("声明逐行一致（提供方改了契约就要重新复制过来）", () => {
+		// 非空断言只在 describe.skip 分支下会是空，而那时本体不执行
 		expect(declarationsOf(readFileSync(LOCAL_COPY, "utf8"))).toEqual(
-			declarationsOf(readFileSync(UPSTREAM_COPY, "utf8")),
+			declarationsOf(readFileSync(UPSTREAM_COPY!, "utf8")),
 		);
 	});
 

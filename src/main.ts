@@ -1,4 +1,5 @@
 import {
+	createPackIconsProvider,
 	getCustomIconsApi,
 	onCustomIconsChanged,
 } from "@src/api/customIcons";
@@ -38,12 +39,23 @@ export default class InlineIconsPlugin extends Plugin {
 	 *
 	 * 主体只吃公共 `getIconIds()`，所以**没装 Custom Icons 也照常工作**（P1）：
 	 * 它装的用户 SVG（`CI-<id>`）与图标包（`CI-<packId>-<name>`）本来就是普通的
-	 * 全局图标。第二个参数是补充档——只有 Custom Icons 的 `api.renderTo` 画得出来
-	 * 的那批（Lucide 差集，**不在注册表里**），提供方不在场时整档消失。
+	 * 全局图标。后两个参数都是跨插件增强，提供方不在场时各自整档消失：
+	 *
+	 * | 参数 | 作用 | 缺了会怎样 |
+	 * | --- | --- | --- |
+	 * | `hasExtra` | 认出只有 `api.renderTo` 画得出来的那批（Lucide 差集，**不在注册表里**） | 那一档消失，退化成纯注册表查询 |
+	 * | `getPackIcons` | 回答「`icon:mdi:` 该列哪些图标」的**权威成员表** | 退回 `CI-mdi-` 前缀匹配（裸装下本来就没有 `CI-*`） |
+	 *
+	 * 第三个参数不是锦上添花：按前缀筛会把 `mdi-light` 包的图标列进 `icon:mdi:`，
+	 * 也认不出已停用的包，见 `syntax/resolve.ts` 的 `PackIconsProvider`。
+	 *
+	 * `createPackIconsProvider` 自带按 `revision` 的缓存，所以这里建一次就够——
+	 * 它内部每次现取 api，不会缓存那个引用。
 	 */
 	readonly resolver = new IconResolver(
 		() => getIconIds(),
 		(id) => getCustomIconsApi(this.app)?.has(id) ?? false,
+		createPackIconsProvider(this.app),
 	);
 
 	async onload() {
