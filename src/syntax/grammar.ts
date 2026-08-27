@@ -63,7 +63,8 @@ export interface BareMatch {
 	token: IconToken;
 }
 
-function escapeRegExp(value: string): string {
+/** 把字符串转成可安全嵌进正则的形态（前缀词与输入别名都来自用户设置）。 */
+export function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 

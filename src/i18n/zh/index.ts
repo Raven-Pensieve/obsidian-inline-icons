@@ -60,6 +60,20 @@ const zh = {
 			button: "重置",
 		},
 	},
+	ui: {
+		unresolved: "找不到图标「{name}」",
+		sourceBuiltin: "Obsidian 内置",
+		sourceCustomIcons: "Custom Icons",
+	},
+	commands: {
+		insertIcon: {
+			name: "插入图标",
+			placeholder: "搜索图标…",
+		},
+		reapply: {
+			name: "重新渲染本文档的图标",
+		},
+	},
 } satisfies BaseTranslation;
 
 export default zh;

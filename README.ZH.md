@@ -4,7 +4,8 @@
 
 把图标写进笔记正文。`` `icon:sun` `` 会渲染成一个图标，与周围文字同行、同字号、同颜色。
 
-> **状态：开发中。** 语法与范围已定，实现尚未发布（里程碑 M1，见 [`dev/roadmap.md`](dev/roadmap.md)）。插件还未上架社区插件列表，M1 落地前 `` `icon:…` `` 不会有任何效果。
+> **状态：开发中。** M1 的功能已经写完（两条渲染管线、补全、插入命令），但**还没有在 Obsidian 里验证过一条**，
+> 也尚未上架社区插件列表。验证清单见 [`dev/roadmap.md`](dev/roadmap.md)。
 
 ![GitHub Socialify](https://socialify.git.ci/Raven-Pensieve/obsidian-inline-icons/image?description=1&font=Rokkitt&forks=1&issues=1&language=1&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto)
 

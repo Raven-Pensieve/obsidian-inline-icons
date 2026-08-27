@@ -60,6 +60,20 @@ const en = {
 			button: "Reset",
 		},
 	},
+	ui: {
+		unresolved: "No icon named \"{name}\"",
+		sourceBuiltin: "Built-in",
+		sourceCustomIcons: "Custom Icons",
+	},
+	commands: {
+		insertIcon: {
+			name: "Insert icon",
+			placeholder: "Search icons…",
+		},
+		reapply: {
+			name: "Re-render icons in this note",
+		},
+	},
 } satisfies BaseTranslation;
 
 export default en;
