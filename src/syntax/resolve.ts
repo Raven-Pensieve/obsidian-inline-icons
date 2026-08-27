@@ -50,6 +50,21 @@ export function labelOf(id: string): string {
 	return id;
 }
 
+/** 收集某个前缀下的图标，label 取前缀之后的部分；**已存在的 label 不覆盖**。 */
+function collectByPrefix(
+	ids: Iterable<string>,
+	prefix: string,
+	source: IconIdSource,
+	into: Map<string, IconCandidate>,
+): void {
+	for (const id of ids) {
+		if (!id.startsWith(prefix)) continue;
+		const label = id.slice(prefix.length);
+		if (label === "" || into.has(label)) continue;
+		into.set(label, { id, label, source });
+	}
+}
+
 /** 注册表快照的提供者；生产环境就是 obsidian 的 `getIconIds`。 */
 export type IconIdProvider = () => string[];
 
@@ -74,8 +89,8 @@ export class IconResolver {
 	 */
 	#packIndex: Map<string, string> | null = null;
 
-	/** 补全候选池，惰性建立。 */
-	#catalog: IconCandidate[] | null = null;
+	/** 补全候选池，按来源段分别缓存（`""` 代表「不写来源」）。 */
+	readonly #catalogBySource = new Map<string, IconCandidate[]>();
 
 	/** `source|name` → 命中的 id（`null` 表示确认解析不出来，同样要缓存）。 */
 	readonly #cache = new Map<string, string | null>();
@@ -88,7 +103,7 @@ export class IconResolver {
 	invalidate(): void {
 		this.#ids = null;
 		this.#packIndex = null;
-		this.#catalog = null;
+		this.#catalogBySource.clear();
 		this.#cache.clear();
 	}
 
@@ -114,12 +129,32 @@ export class IconResolver {
 	 * 顺序沿用 `getIconIds()`，调用方自己排序（最近使用优先等）。
 	 */
 	catalog(): readonly IconCandidate[] {
-		this.#catalog ??= [...this.#idSet()].map((id) => ({
-			id,
-			label: labelOf(id),
-			source: IconResolver.sourceOf(id),
-		}));
-		return this.#catalog;
+		return this.catalogFor(null);
+	}
+
+	/**
+	 * **按来源段过滤**的候选池：用户已经写了 `icon:ci:` / `icon:lucide:` / `icon:mdi:`
+	 * 时，补全只该列出那个来源里的图标。
+	 *
+	 * 关键在于 `label` 是**相对来源的名字**，也就是用户接着要敲的那一段：
+	 *
+	 * | 来源段 | 收哪些 id | label |
+	 * | --- | --- | --- |
+	 * | `null` | 全部 | 去掉注册前缀（`lucide-sun` → `sun`） |
+	 * | `ci` | 全部 `CI-*` | `CI-` 之后的整段（`CI-mdi-home` → `mdi-home`） |
+	 * | `lucide` | `lucide-*` ＋ `CI-lucide-*` | 各自去掉前缀；**同名时内置胜出**（与解析链一致） |
+	 * | 其他（包 id） | `CI-<packId>-*` | 该前缀之后的部分（`CI-mdi-home` → `home`） |
+	 *
+	 * 认不出的来源段返回空列表——补全自然什么都不显示，比乱列一堆好。
+	 */
+	catalogFor(source: string | null): readonly IconCandidate[] {
+		const key = source ?? "";
+		const cached = this.#catalogBySource.get(key);
+		if (cached !== undefined) return cached;
+
+		const built = this.#buildCatalog(source);
+		this.#catalogBySource.set(key, built);
+		return built;
 	}
 
 	/**
@@ -127,18 +162,32 @@ export class IconResolver {
 	 *
 	 * 取「能解析回同一个 id 的最短形态」：
 	 *
-	 * 1. `` `icon:sun` `` —— 不写来源段，最好读；
-	 * 2. `` `icon:ci:xxx` `` / `` `icon:lucide:xxx` `` —— 名字被别处抢先时（例如
-	 *    `home` 同时存在于内置与 `mdi` 包）退一步钉死来源；
-	 * 3. `` `icon:CI-mdi-home` `` —— 兜底写完整 id，解析链第一步就能命中。
+	 * 1. `preferred` —— 用户已经把来源段敲进去了（`icon:ci:`），就尊重它，别替人改写；
+	 * 2. `` `icon:sun` `` —— 不写来源段，最好读；
+	 * 3. `` `icon:ci:xxx` `` / `` `icon:lucide:xxx` `` —— 名字被别处抢先时（例如用户
+	 *    导入的 `sun` 被内置的 `lucide-sun` 抢先）退一步钉死来源；
+	 * 4. `` `icon:CI-mdi-home` `` —— 兜底写完整 id，解析链第一步就能命中。
 	 *
-	 * 用真实解析器做**往返校验**，所以不会写出一个渲染成别的图标的记号。
+	 * 每一步都用真实解析器做**往返校验**，所以不会写出一个渲染成别的图标的记号。
 	 */
-	tokenFor(id: string, options: GrammarOptions = {}): string {
+	tokenFor(
+		id: string,
+		options: GrammarOptions = {},
+		preferred?: { source: string; name: string },
+	): string {
 		const label = labelOf(id);
 		const pinned = id.startsWith(CI_PREFIX) ? SOURCE_CI : SOURCE_LUCIDE;
 		const fallback: IconToken = { source: null, name: id, modifiers: [] };
 		const candidates: IconToken[] = [
+			...(preferred === undefined
+				? []
+				: [
+						{
+							source: preferred.source,
+							name: preferred.name,
+							modifiers: [],
+						},
+					]),
 			{ source: null, name: label, modifiers: [] },
 			{ source: pinned, name: label, modifiers: [] },
 			fallback,
@@ -185,6 +234,51 @@ export class IconResolver {
 				`${CI_PREFIX}${name}`,
 			]) ?? this.#packLookup(name)
 		);
+	}
+
+	/** 见 {@link catalogFor} 的表格：label 一律是「相对来源的名字」。 */
+	#buildCatalog(source: string | null): IconCandidate[] {
+		const ids = this.#idSet();
+
+		if (source === null) {
+			return [...ids].map((id) => ({
+				id,
+				label: labelOf(id),
+				source: IconResolver.sourceOf(id),
+			}));
+		}
+
+		if (source === SOURCE_CI) {
+			return [...ids]
+				.filter((id) => id.startsWith(CI_PREFIX))
+				.map((id) => ({
+					id,
+					label: id.slice(CI_PREFIX.length),
+					source: "custom-icons" as const,
+				}));
+		}
+
+		if (source === SOURCE_LUCIDE) {
+			// 内置优先、包兜底：同名时先登记的（内置）胜出，与解析链的两级回退一致
+			const byLabel = new Map<string, IconCandidate>();
+			collectByPrefix(ids, LUCIDE_PREFIX, "builtin", byLabel);
+			collectByPrefix(
+				ids,
+				`${CI_PREFIX}${SOURCE_LUCIDE}-`,
+				"custom-icons",
+				byLabel,
+			);
+			return [...byLabel.values()];
+		}
+
+		const packPrefix = `${CI_PREFIX}${source}-`;
+		return [...ids]
+			.filter((id) => id.startsWith(packPrefix))
+			.map((id) => ({
+				id,
+				label: id.slice(packPrefix.length),
+				source: "custom-icons" as const,
+			}));
 	}
 
 	#first(candidates: readonly string[]): string | null {

@@ -15,16 +15,20 @@ export const RECENT_LIMIT = 20;
  * 1. **最近使用过的排在最前**，彼此之间按最近程度（`recent` 数组的顺序）；
  * 2. 其余按命中质量：完全相同 → 前缀命中 → 包含命中；同分时短名字在前，再按字典序。
  *
- * **query 为空时不返回任何东西**——空 query 会一次列出上千个图标，那不是补全。
+ * **query 为空时默认返回空列表**——空 query 会一次列出上千个图标，那不是补全。
+ * 例外是 `allowEmptyQuery`：用户已经写了来源段（`icon:ci:`）时候选池已经被那个来源
+ * 收窄过了，此时应当直接列出来让他挑，排序退化为「最近使用优先，其余按字典序」。
  */
 export function filterCandidates(
 	catalog: readonly IconCandidate[],
 	query: string,
 	recent: readonly string[],
 	limit: number,
+	options: { allowEmptyQuery?: boolean } = {},
 ): IconCandidate[] {
 	const needle = query.trim().toLowerCase();
-	if (needle === "") return [];
+	const browsing = needle === "";
+	if (browsing && options.allowEmptyQuery !== true) return [];
 
 	const scored: {
 		candidate: IconCandidate;
@@ -35,11 +39,13 @@ export function filterCandidates(
 	for (const candidate of catalog) {
 		const label = candidate.label.toLowerCase();
 
-		let score: number;
-		if (label === needle) score = 0;
-		else if (label.startsWith(needle)) score = 1;
-		else if (label.includes(needle)) score = 2;
-		else continue;
+		let score = 0;
+		if (!browsing) {
+			if (label === needle) score = 0;
+			else if (label.startsWith(needle)) score = 1;
+			else if (label.includes(needle)) score = 2;
+			else continue;
+		}
 
 		scored.push({
 			candidate,
@@ -57,7 +63,10 @@ export function filterCandidates(
 		}
 		return (
 			a.score - b.score ||
-			a.candidate.label.length - b.candidate.label.length ||
+			// 纯浏览时不按长度排——那看起来像随机顺序，字典序更好翻
+			(browsing
+				? 0
+				: a.candidate.label.length - b.candidate.label.length) ||
 			a.candidate.label.localeCompare(b.candidate.label)
 		);
 	});

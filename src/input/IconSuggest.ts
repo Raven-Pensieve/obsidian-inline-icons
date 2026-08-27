@@ -1,5 +1,4 @@
 import type InlineIconsPlugin from "@src/main";
-import { escapeRegExp, parseTokenBody, type IconToken } from "@src/syntax/grammar";
 import type { IconCandidate } from "@src/syntax/resolve";
 import {
 	EditorSuggest,
@@ -11,6 +10,7 @@ import {
 } from "obsidian";
 import { filterCandidates } from "./ranking";
 import { renderIconSuggestion } from "./suggestItem";
+import { matchTrigger } from "./trigger";
 
 /**
  * 输入时的图标补全（P2 的主路径）。
@@ -18,9 +18,20 @@ import { renderIconSuggestion } from "./suggestItem";
  * 核心一招：**「召唤补全的触发序列」与「落到文件里的记号」不是同一个东西**。
  * 用户敲 `i:su`，插件写进去的是 `` `icon:sun` ``——**反引号由插件补**，
  * 因此不依赖、也不受「自动配对反引号」这个设置影响。
+ *
+ * 触发判定全在 {@link matchTrigger}（纯函数、有单测），这里只负责与 Obsidian 对接。
  */
 export class IconSuggest extends EditorSuggest<IconCandidate> {
 	readonly #plugin: InlineIconsPlugin;
+
+	/**
+	 * 本次触发命中的来源段（`ci` / `lucide` / 包 id），没写来源时为 `null`。
+	 *
+	 * `EditorSuggestContext` 只带得动一个 `query` 字符串，所以来源段记在这里，
+	 * 供 {@link getSuggestions} 收窄候选池、{@link selectSuggestion} 保留用户写的形态。
+	 * onTrigger → getSuggestions → selectSuggestion 是同一轮同步调用，不会串。
+	 */
+	#source: string | null = null;
 
 	constructor(plugin: InlineIconsPlugin) {
 		super(plugin.app);
@@ -32,27 +43,38 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 		editor: Editor,
 		_file: TFile | null,
 	): EditorSuggestTriggerInfo | null {
+		this.#source = null;
 		if (!this.#plugin.settings.suggest.enabled) return null;
 
-		const line = editor.getLine(cursor.line);
-		const before = line.slice(0, cursor.ch);
-		// obsidian 的 jsdoc 明确写了 onTrigger「每次按键都会触发」，
-		// 所以先做一次廉价的字符检查，再上正则
-		if (!/[A-Za-z0-9_:：-]$/.test(before)) return null;
+		const { syntax, suggest } = this.#plugin.settings;
+		const match = matchTrigger(editor.getLine(cursor.line), cursor.ch, {
+			prefix: syntax.prefix,
+			alias: suggest.alias,
+		});
+		if (match === null) return null;
 
-		return (
-			this.#triggerInsideSpan(cursor, line) ??
-			this.#triggerWhileTyping(cursor, line, before)
-		);
+		this.#source = match.source;
+		return {
+			start: { line: cursor.line, ch: match.start },
+			end: { line: cursor.line, ch: match.end },
+			query: match.query,
+		};
 	}
 
+	/**
+	 * 候选池按来源段收窄：写了 `icon:ci:` 就只列用户 SVG，写了 `icon:mdi:` 就只列 mdi 包。
+	 *
+	 * 来源段已经把池子缩小了，所以此时**允许空 query**——用户敲完 `icon:ci:`
+	 * 就该直接看到里面有什么，而不是被迫再猜一个字母。
+	 */
 	getSuggestions(context: EditorSuggestContext): IconCandidate[] {
 		const { maxResults, recent } = this.#plugin.settings.suggest;
 		return filterCandidates(
-			this.#plugin.resolver.catalog(),
+			this.#plugin.resolver.catalogFor(this.#source),
 			context.query,
 			recent,
 			maxResults,
+			{ allowEmptyQuery: this.#source !== null },
 		);
 	}
 
@@ -65,9 +87,14 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 		const context = this.context;
 		if (context === null) return;
 
+		// 用户自己写了来源段就尊重它：候选的 label 本就是「相对那个来源的名字」，
+		// 拼回去是精确的，不该被 tokenFor 改写成更短但丢掉来源的形态
 		const text = this.#plugin.resolver.tokenFor(
 			value.id,
 			this.#plugin.grammarOptions,
+			this.#source === null
+				? undefined
+				: { source: this.#source, name: value.label },
 		);
 
 		context.editor.replaceRange(text, context.start, context.end);
@@ -78,82 +105,5 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 
 		void this.#plugin.rememberIcon(value.id);
 		this.close();
-	}
-
-	/**
-	 * 光标落在一个**已存在**的记号里：换图标不用重打（0 键路径）。
-	 *
-	 * 替换范围覆盖整对反引号，所以写回去的仍是完整形态，不会出现 `` ``icon:sun` `` 这种残留。
-	 */
-	#triggerInsideSpan(
-		cursor: EditorPosition,
-		line: string,
-	): EditorSuggestTriggerInfo | null {
-		const open = line.lastIndexOf("`", cursor.ch - 1);
-		if (open < 0) return null;
-
-		const close = line.indexOf("`", cursor.ch);
-		if (close < 0) return null;
-
-		const body = line.slice(open + 1, close);
-		const token = this.#parse(body);
-		if (token === null) return null;
-
-		return {
-			start: { line: cursor.line, ch: open },
-			end: { line: cursor.line, ch: close + 1 },
-			query: token.name,
-		};
-	}
-
-	/**
-	 * 正在敲一个新记号：`i:su` / `icon:su`，至少要有一个字符才弹窗。
-	 *
-	 * 若用户自己敲了反引号（或 Obsidian 自动配对出了一对），把它们一并纳入替换范围，
-	 * 于是两种设置下的结果一致。
-	 */
-	#triggerWhileTyping(
-		cursor: EditorPosition,
-		line: string,
-		before: string,
-	): EditorSuggestTriggerInfo | null {
-		const words = this.#triggerWords();
-		if (words.length === 0) return null;
-
-		const pattern = new RegExp(
-			`(?:^|[^A-Za-z0-9_-])((?:${words.map(escapeRegExp).join("|")})[:：]([A-Za-z0-9_-]{1,64}))$`,
-			"i",
-		);
-		const match = pattern.exec(before);
-		if (match === null) return null;
-
-		let start = before.length - match[1].length;
-		let end = cursor.ch;
-		if (line[start - 1] === "`") start -= 1;
-		if (line[end] === "`") end += 1;
-
-		return {
-			start: { line: cursor.line, ch: start },
-			end: { line: cursor.line, ch: end },
-			query: match[2],
-		};
-	}
-
-	/** 可触发补全的词：正式前缀 + 只存在于补全里的输入别名。 */
-	#triggerWords(): string[] {
-		const { syntax, suggest } = this.#plugin.settings;
-		const words = [syntax.prefix.trim(), suggest.alias.trim()].filter(
-			(word) => word !== "",
-		);
-		return [...new Set(words)];
-	}
-
-	/** 记号体既认正式前缀，也认输入别名（用户可能把别名敲进了反引号里）。 */
-	#parse(body: string): IconToken | null {
-		const { syntax, suggest } = this.#plugin.settings;
-		return (
-			parseTokenBody(body, { prefix: syntax.prefix }) ??
-			parseTokenBody(body, { prefix: suggest.alias })
-		);
 	}
 }
