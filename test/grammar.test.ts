@@ -1,4 +1,5 @@
 import {
+	canReference,
 	DEFAULT_PREFIX,
 	formatCodeSpan,
 	formatTokenBody,
@@ -81,23 +82,69 @@ describe("parseTokenBody", () => {
 		["sun", "没有前缀"],
 		["iconsun", "缺冒号"],
 		["icon:a:b:c", "三段以上不猜"],
-		["icon:sun sun", "名字里有空格"],
-		["icon:变量", "非 ASCII 名字"],
-		["icon:sun/moon", "名字含非法字符"],
 		["INPUT[foo]", "别的插件的记号"],
 		["icon::sun", "空来源段"],
 	])("拒绝 %s（%s）", (body) => {
 		expect(parseTokenBody(body)).toBeNull();
 	});
 
-	it("拒绝超长输入（挡住病态回溯）", () => {
-		expect(parseTokenBody(`icon:${"a".repeat(65)}`)).toBeNull();
-		expect(parseTokenBody(`icon:sun,${"a".repeat(200)}`)).toBeNull();
+	it("含逗号的 id 引用不了：逗号会被当成修饰符分隔符", () => {
+		expect(parseTokenBody("icon:CI-a,b")).toEqual({
+			source: null,
+			name: "CI-a",
+			modifiers: ["b"],
+		});
+		expect(canReference("CI-a,b")).toBe(false);
 	});
 
-	it("两侧空白无所谓，内部空白不行", () => {
+	it("id 可以含中文（用户 SVG 的 id 取自文件名）", () => {
+		expect(parseTokenBody("icon:CI-我的图标")).toEqual({
+			source: null,
+			name: "CI-我的图标",
+			modifiers: [],
+		});
+		expect(parseTokenBody("icon:ci:我的图标")).toEqual({
+			source: "ci",
+			name: "我的图标",
+			modifiers: [],
+		});
+	});
+
+	it("id 可以含空格、点与括号——行内代码的反引号已经给出了边界", () => {
+		expect(parseTokenBody("icon:CI-my icon")?.name).toBe("CI-my icon");
+		expect(parseTokenBody("icon:CI-logo (dark)")?.name).toBe(
+			"CI-logo (dark)",
+		);
+		expect(parseTokenBody("icon:CI-1.5x")?.name).toBe("CI-1.5x");
+	});
+
+	it("每段两侧的空白都 trim 掉", () => {
 		expect(parseTokenBody("  icon:sun  ")?.name).toBe("sun");
-		expect(parseTokenBody("icon: sun")).toBeNull();
+		expect(parseTokenBody("icon: sun")?.name).toBe("sun");
+		expect(parseTokenBody("icon: ci : my-logo ")).toEqual({
+			source: "ci",
+			name: "my-logo",
+			modifiers: [],
+		});
+	});
+
+	it("拒绝超长输入（挡住病态回溯）", () => {
+		expect(parseTokenBody(`icon:${"a".repeat(97)}`)).toBeNull();
+		expect(parseTokenBody(`icon:${"a".repeat(96)}`)?.name).toHaveLength(96);
+		expect(parseTokenBody(`icon:sun,${"a".repeat(200)}`)).toBeNull();
+	});
+});
+
+describe("canReference", () => {
+	it("含结构字符的 id 引用不了，补全候选池要剔掉它们", () => {
+		expect(canReference("lucide-sun")).toBe(true);
+		expect(canReference("CI-我的图标")).toBe(true);
+		expect(canReference("CI-my icon")).toBe(true);
+		expect(canReference("CI-a,b")).toBe(false);
+		expect(canReference("CI-a:b")).toBe(false);
+		expect(canReference("CI-a`b")).toBe(false);
+		expect(canReference(" CI-a")).toBe(false);
+		expect(canReference("")).toBe(false);
 	});
 });
 
@@ -166,5 +213,18 @@ describe("scanBareTokens（默认关闭的逃生开关）", () => {
 
 	it("C1 的已知代价：icon:sunny 整段当成名字 sunny", () => {
 		expect(scanBareTokens("icon:sunny")[0].token.name).toBe("sunny");
+	});
+
+	it("中文 id：有空格分隔时能命中", () => {
+		expect(scanBareTokens("看这个 icon:CI-我的图标 好看")[0]).toMatchObject({
+			raw: "icon:CI-我的图标",
+		});
+	});
+
+	it("中文语境下裸形式本就不可靠（这也是它默认关闭的原因）", () => {
+		// 紧贴中文时不命中：左边界要求前一个字符不是字母/数字
+		expect(scanBareTokens("看这个icon:CI-我的图标")).toEqual([]);
+		// 命中时也会把后面的中文一起吃进 id
+		expect(scanBareTokens("看 icon:sun很好")[0].token.name).toBe("sun很好");
 	});
 });

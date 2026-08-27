@@ -82,19 +82,19 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 		renderIconSuggestion(value, el);
 	}
 
-	/** 整段替换 `[start, end)`，写入**含那对反引号**的规范形态。 */
+	/**
+	 * 整段替换 `[start, end)`，写入**含那对反引号的单段形态** `` `icon:<icon-id>` ``。
+	 *
+	 * 即使用户是在 `icon:ci:` / `icon:mdi:` 的列表里挑的，落盘也不带来源段——
+	 * 来源段只是输入期收窄候选池的工具，见 `dev/syntax-spec.md`。
+	 */
 	selectSuggestion(value: IconCandidate): void {
 		const context = this.context;
 		if (context === null) return;
 
-		// 用户自己写了来源段就尊重它：候选的 label 本就是「相对那个来源的名字」，
-		// 拼回去是精确的，不该被 tokenFor 改写成更短但丢掉来源的形态
 		const text = this.#plugin.resolver.tokenFor(
 			value.id,
 			this.#plugin.grammarOptions,
-			this.#source === null
-				? undefined
-				: { source: this.#source, name: value.label },
 		);
 
 		context.editor.replaceRange(text, context.start, context.end);

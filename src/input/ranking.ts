@@ -37,14 +37,10 @@ export function filterCandidates(
 	}[] = [];
 
 	for (const candidate of catalog) {
-		const label = candidate.label.toLowerCase();
-
 		let score = 0;
 		if (!browsing) {
-			if (label === needle) score = 0;
-			else if (label.startsWith(needle)) score = 1;
-			else if (label.includes(needle)) score = 2;
-			else continue;
+			score = matchScore(candidate, needle);
+			if (score < 0) continue;
 		}
 
 		scored.push({
@@ -77,4 +73,26 @@ export function filterCandidates(
 /** 把 id 挪到最近使用列表最前面，去重并截断。 */
 export function withRecent(recent: readonly string[], id: string): string[] {
 	return [id, ...recent.filter((item) => item !== id)].slice(0, RECENT_LIMIT);
+}
+
+/**
+ * 命中质量：0 完全相同 / 1 前缀 / 2 包含 / -1 不命中。
+ *
+ * **短名与完整 id 都参与匹配**，取更好的那个：
+ * 敲 `sun` 能命中 `lucide-sun`（短名前缀），敲 `CI-mdi` 也能命中 `CI-mdi-outlined-1k`
+ * （完整 id 前缀）。中文 id 直接按包含匹配，不做分词。
+ */
+function matchScore(candidate: IconCandidate, needle: string): number {
+	const best = Math.min(
+		scoreOne(candidate.label.toLowerCase(), needle),
+		scoreOne(candidate.id.toLowerCase(), needle),
+	);
+	return best === Number.MAX_SAFE_INTEGER ? -1 : best;
+}
+
+function scoreOne(haystack: string, needle: string): number {
+	if (haystack === needle) return 0;
+	if (haystack.startsWith(needle)) return 1;
+	if (haystack.includes(needle)) return 2;
+	return Number.MAX_SAFE_INTEGER;
 }

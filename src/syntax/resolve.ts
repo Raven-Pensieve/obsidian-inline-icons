@@ -1,23 +1,42 @@
 /**
  * 解析链：把 {@link IconToken} 变成一个**能渲染的 Obsidian 图标 id**。
  *
- * P1（裸装只有 Obsidian 自带图标）在这里**自然发生，没有任何特判**：
+ * **落盘形态放的是真实注册 id**：`` `icon:lucide-sun` `` / `` `icon:CI-mdi-outlined-1k` ``。
+ * 不做任何前缀增删，所以「记号里写的」与「注册表里的」逐字相同，永不歧义。
+ * 来源段（`ci:` / `lucide:` / `<packId>:`）是**输入期的便利**——能解析、能在补全里
+ * 收窄候选池，但补全写进文件的永远是完整 id。
  *
  * ```
- * `icon:sun` 的单段解析顺序
- *   ① sun               原样（用户直接写完整 id 时也能命中）
- *   ② lucide-sun        Obsidian 内置图标的注册形式
- *   ③ CI-sun            Custom Icons 的用户 SVG
- *   ④ CI-<pack>-sun     Custom Icons 的图标包
- *   ⑤ 全落空 → null，调用方保留原文
+ * `icon:lucide-sun`                    → lucide-sun
+ * `icon:CI-mdi-outlined-1k`            → CI-mdi-outlined-1k
+ * `icon:CI-vscode-icons-default-file`  → CI-vscode-icons-default-file
+ * `icon:CI-我的图标`                    → CI-我的图标
  * ```
  *
- * 没装 Custom Icons 时 ③④ 天然全部落空，于是只剩内置图标——这就是基线。
+ * 手写简写同样认（下面的 ②③），P1（裸装只有 Obsidian 自带图标）也在这里
+ * **自然发生，没有任何特判**：
+ *
+ * ```
+ *   ① setIcon(el, "<name>")        原样：真实 id 走的就是这一档
+ *   ② setIcon(el, "lucide-<name>") 手写简写 `icon:sun`
+ *   ③ setIcon(el, "CI-<name>")     手写简写 `icon:mdi-outlined-1k`
+ *   ④ 全落空 → null，调用方保留原文
+ *
+ * 写了来源段时不走这条链，而是正向构造一次：
+ *   ci:<name>        → CI-<name>
+ *   lucide:<name>    → lucide-<name>，再 CI-lucide-<name>（内置优先、包兜底）
+ *   <packId>:<name>  → CI-<packId>-<name>
+ * ```
+ *
+ * **没有「拿名字去各个图标包里猜」这一步**：`CI-<packId>-<name>` 不可逆向切分，
+ * 猜的结果取决于装了哪些包、以及 `getIconIds()` 的顺序——那种「图标随机不出来」
+ * 正是本项目要避免的。
  *
  * 本模块只依赖一个 `() => string[]`（生产环境传 obsidian 的 `getIconIds`），
  * 所以可以用假注册表完整单测。
  */
 import {
+	canReference,
 	formatCodeSpan,
 	SOURCE_CI,
 	SOURCE_LUCIDE,
@@ -34,16 +53,21 @@ export const LUCIDE_PREFIX = "lucide-";
 /** 图标 id 的来源，供补全分组用。 */
 export type IconIdSource = "builtin" | "custom-icons";
 
-/** 补全候选：一个可用图标的 id、展示名与来源。 */
+/** 补全候选。**展示与落盘都用 `id`**，`label` 只用于过滤。 */
 export interface IconCandidate {
-	/** Obsidian 注册表里的 id，如 `lucide-sun` / `CI-mdi-home`。 */
+	/** Obsidian 注册表里的完整 id，如 `lucide-sun` / `CI-mdi-outlined-1k` / `CI-我的图标`。 */
 	id: string;
-	/** 展示名：去掉 `lucide-` / `CI-` 前缀后的部分。 */
+	/**
+	 * 过滤用的短名：去掉注册前缀（`lucide-sun` → `sun`），
+	 * 写了来源段时是相对该来源的名字（`icon:mdi:` 下 `CI-mdi-home` → `home`）。
+	 *
+	 * **不是落盘形态**——写进文件的是 {@link id}。
+	 */
 	label: string;
 	source: IconIdSource;
 }
 
-/** 去掉注册前缀，得到给人看的名字。 */
+/** 去掉注册前缀，得到用于过滤的短名。 */
 export function labelOf(id: string): string {
 	if (id.startsWith(CI_PREFIX)) return id.slice(CI_PREFIX.length);
 	if (id.startsWith(LUCIDE_PREFIX)) return id.slice(LUCIDE_PREFIX.length);
@@ -71,7 +95,7 @@ export type IconIdProvider = () => string[];
 /**
  * 解析器。
  *
- * **必须缓存**：逐个图标包试前缀会在渲染热路径上重复很多次。
+ * **必须缓存**：同一个记号在渲染热路径上会被反复解析。
  * 注册表变化时（Custom Icons 装/卸包、被启用/禁用）调 {@link invalidate}。
  */
 export class IconResolver {
@@ -79,15 +103,6 @@ export class IconResolver {
 
 	/** 注册表快照，惰性建立。 */
 	#ids: Set<string> | null = null;
-
-	/**
-	 * `CI-` 图标的「名字后缀 → 完整 id」索引。
-	 *
-	 * `CI-<packId>-<name>` **不可逆向切分**（packId 与 name 都可含 `-`），
-	 * 所以这里反过来做：把每个 `CI-` id 的所有可能名字后缀都登记一遍。
-	 * 同名撞车时**先出现的 id 胜出**（`getIconIds()` 的顺序）。
-	 */
-	#packIndex: Map<string, string> | null = null;
 
 	/** 补全候选池，按来源段分别缓存（`""` 代表「不写来源」）。 */
 	readonly #catalogBySource = new Map<string, IconCandidate[]>();
@@ -102,7 +117,6 @@ export class IconResolver {
 	/** 丢掉注册表快照与解析缓存。注册表可能变化时都要调。 */
 	invalidate(): void {
 		this.#ids = null;
-		this.#packIndex = null;
 		this.#catalogBySource.clear();
 		this.#cache.clear();
 	}
@@ -160,45 +174,15 @@ export class IconResolver {
 	/**
 	 * 给一个图标 id 生成**写进文件的记号**（含那对反引号）。
 	 *
-	 * 取「能解析回同一个 id 的最短形态」：
+	 * **就是真实注册 id 本身**：`lucide-sun` → `` `icon:lucide-sun` ``，
+	 * `CI-我的图标` → `` `icon:CI-我的图标` ``。不删前缀、不加来源段，
+	 * 所以它必然由解析链第一档原样命中，不存在撞名，也不需要往返校验。
 	 *
-	 * 1. `preferred` —— 用户已经把来源段敲进去了（`icon:ci:`），就尊重它，别替人改写；
-	 * 2. `` `icon:sun` `` —— 不写来源段，最好读；
-	 * 3. `` `icon:ci:xxx` `` / `` `icon:lucide:xxx` `` —— 名字被别处抢先时（例如用户
-	 *    导入的 `sun` 被内置的 `lucide-sun` 抢先）退一步钉死来源；
-	 * 4. `` `icon:CI-mdi-home` `` —— 兜底写完整 id，解析链第一步就能命中。
-	 *
-	 * 每一步都用真实解析器做**往返校验**，所以不会写出一个渲染成别的图标的记号。
+	 * 用户在补全里写过的来源段（`icon:ci:`）**不会**被带进文件——来源段只是输入期
+	 * 用来收窄候选池的工具。
 	 */
-	tokenFor(
-		id: string,
-		options: GrammarOptions = {},
-		preferred?: { source: string; name: string },
-	): string {
-		const label = labelOf(id);
-		const pinned = id.startsWith(CI_PREFIX) ? SOURCE_CI : SOURCE_LUCIDE;
-		const fallback: IconToken = { source: null, name: id, modifiers: [] };
-		const candidates: IconToken[] = [
-			...(preferred === undefined
-				? []
-				: [
-						{
-							source: preferred.source,
-							name: preferred.name,
-							modifiers: [],
-						},
-					]),
-			{ source: null, name: label, modifiers: [] },
-			{ source: pinned, name: label, modifiers: [] },
-			fallback,
-		];
-
-		for (const candidate of candidates) {
-			if (this.resolve(candidate) === id) {
-				return formatCodeSpan(candidate, options);
-			}
-		}
-		return formatCodeSpan(fallback, options);
+	tokenFor(id: string, options: GrammarOptions = {}): string {
+		return formatCodeSpan({ source: null, name: id, modifiers: [] }, options);
 	}
 
 	/** 一个 id 来自哪里，供补全分组显示。 */
@@ -223,25 +207,30 @@ export class IconResolver {
 		}
 
 		if (source !== null) {
-			// 钉死某个图标包
+			// 钉死某个图标包：正向构造，不做任何切分猜测
 			return this.#first([`${CI_PREFIX}${source}-${name}`]);
 		}
 
-		return (
-			this.#first([
-				name,
-				`${LUCIDE_PREFIX}${name}`,
-				`${CI_PREFIX}${name}`,
-			]) ?? this.#packLookup(name)
-		);
+		// 单段形态：原样 → 内置 → Custom Icons。**不猜图标包**，
+		// 因为 CI-<packId>-<name> 不可逆向切分，猜的结果取决于装了哪些包
+		return this.#first([
+			name,
+			`${LUCIDE_PREFIX}${name}`,
+			`${CI_PREFIX}${name}`,
+		]);
 	}
 
-	/** 见 {@link catalogFor} 的表格：label 一律是「相对来源的名字」。 */
+	/**
+	 * 见 {@link catalogFor} 的表格：`label` 是过滤用的短名，落盘用的仍是 `id`。
+	 *
+	 * **写不进记号的 id 会被剔掉**（含冒号 / 逗号 / 反引号 / 换行的 id，见
+	 * {@link canReference}）——列出来也没用，选了会插入一个解析不回来的记号。
+	 */
 	#buildCatalog(source: string | null): IconCandidate[] {
-		const ids = this.#idSet();
+		const ids = [...this.#idSet()].filter(canReference);
 
 		if (source === null) {
-			return [...ids].map((id) => ({
+			return ids.map((id) => ({
 				id,
 				label: labelOf(id),
 				source: IconResolver.sourceOf(id),
@@ -249,7 +238,7 @@ export class IconResolver {
 		}
 
 		if (source === SOURCE_CI) {
-			return [...ids]
+			return ids
 				.filter((id) => id.startsWith(CI_PREFIX))
 				.map((id) => ({
 					id,
@@ -272,7 +261,7 @@ export class IconResolver {
 		}
 
 		const packPrefix = `${CI_PREFIX}${source}-`;
-		return [...ids]
+		return ids
 			.filter((id) => id.startsWith(packPrefix))
 			.map((id) => ({
 				id,
@@ -289,30 +278,8 @@ export class IconResolver {
 		return null;
 	}
 
-	#packLookup(name: string): string | null {
-		return this.#index().get(name) ?? null;
-	}
-
 	#idSet(): Set<string> {
 		this.#ids ??= new Set(this.#getIconIds());
 		return this.#ids;
-	}
-
-	#index(): Map<string, string> {
-		if (this.#packIndex !== null) return this.#packIndex;
-
-		const index = new Map<string, string>();
-		for (const id of this.#idSet()) {
-			if (!id.startsWith(CI_PREFIX)) continue;
-			const segments = id.slice(CI_PREFIX.length).split("-");
-			// 从 1 开始：完整 body 是「用户 SVG」的形态，已由 CI-<name> 直查覆盖
-			for (let i = 1; i < segments.length; i++) {
-				const suffix = segments.slice(i).join("-");
-				if (!index.has(suffix)) index.set(suffix, id);
-			}
-		}
-
-		this.#packIndex = index;
-		return index;
 	}
 }

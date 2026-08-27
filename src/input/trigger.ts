@@ -26,7 +26,15 @@ export interface TriggerOptions {
 	alias: string;
 }
 
-const SEGMENT = "[A-Za-z0-9_-]{1,64}";
+/** 来源段：图标包 id 被 Custom Icons 限定为小写字母/数字/连字符。 */
+const SOURCE_SEGMENT = "[A-Za-z0-9_-]{1,64}";
+
+/**
+ * 正在敲的 id 片段：**要认中文**（用户 SVG 的 id 取自文件名），也要认完整注册 id
+ * 里的点与连字符。但**不认空格**——补全每次按键都会跑，允许空格就会在句子里乱触发。
+ * 含空格的 id 只能走插入命令的模糊搜索。
+ */
+const QUERY_SEGMENT = "[\\p{L}\\p{N}_.-]{1,96}";
 
 /**
  * 判定光标处是否该弹补全。
@@ -46,8 +54,8 @@ export function matchTrigger(
 ): TriggerMatch | null {
 	const before = line.slice(0, cursorCh);
 	// obsidian 的 jsdoc 明确写了 onTrigger「每次按键都会触发」，
-	// 所以先做一次廉价的字符检查，再上正则
-	if (!/[A-Za-z0-9_:：-]$/.test(before)) return null;
+	// 所以先做一次廉价的字符检查，再上正则（\p{L} 让中文 id 也能触发）
+	if (!/[\p{L}\p{N}_:：.-]$/u.test(before)) return null;
 
 	return (
 		matchInsideSpan(line, cursorCh, options) ??
@@ -91,8 +99,8 @@ function matchWhileTyping(
 	if (words.length === 0) return null;
 
 	const pattern = new RegExp(
-		`(?:^|[^A-Za-z0-9_-])((?:${words.join("|")})[:：](?:(${SEGMENT})[:：])?(${SEGMENT})?)$`,
-		"i",
+		`(?:^|[^\\p{L}\\p{N}_-])((?:${words.join("|")})[:：](?:(${SOURCE_SEGMENT})[:：])?(${QUERY_SEGMENT})?)$`,
+		"iu",
 	);
 	const match = pattern.exec(before);
 	if (match === null) return null;

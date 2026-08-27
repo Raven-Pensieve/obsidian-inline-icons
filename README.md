@@ -10,15 +10,26 @@ Write an icon into the body of a note. `` `icon:sun` `` renders as an icon, inli
 
 ## Syntax
 
-The token is an ordinary inline code span, so a note stays readable even with the plugin disabled or uninstalled:
+The token is an ordinary inline code span, so a note stays readable even with the plugin disabled or uninstalled. **What gets written is the real icon id, verbatim:**
 
 ```md
-Weather is `icon:sun` today, remind me at `icon:alarm-clock` nine.
+Weather is `icon:lucide-sun` today, remind me at `icon:lucide-alarm-clock` nine.
 
-`icon:sun`            resolve automatically (built-in Lucide → Custom Icons → icon packs)
-`icon:lucide:sun`     pin to Lucide
-`icon:ci:my-logo`     pin to an SVG you imported into Custom Icons
-`icon:mdi:home`       pin to a specific icon pack
+`icon:lucide-sun`                    Obsidian's built-in Lucide icon
+`icon:CI-mdi-outlined-1k`            an icon from an installed icon pack
+`icon:CI-vscode-icons-default-file`  ditto
+`icon:CI-我的图标`                     an SVG you imported — the id comes from the file name, so it may be non-ASCII
+```
+
+The id is exactly what Custom Icons / Obsidian registered — no prefix is added or stripped, so a token can never point at the wrong icon.
+
+Shorthands are accepted too (the plugin tries `<name>`, then `lucide-<name>`, then `CI-<name>`), and while typing you can narrow by source. The suggester still writes the full id:
+
+```md
+`icon:sun`                  shorthand for lucide-sun
+`icon:ci:mdi-outlined-1k`   only Custom Icons' own registry
+`icon:mdi:outlined-1k`      only the "mdi" pack
+`icon:lucide:sun`           built-in first, icon pack as fallback
 ```
 
 - The `icon` prefix is configurable.
