@@ -35,6 +35,30 @@ describe("正在敲一个新记号", () => {
 		expect(replaced("今天 icon:su| 很好")).toBe("icon:su");
 	});
 
+	it("光秃秃一个 icon: 就弹（不必再猜一个字母）", () => {
+		expect(at("icon:|")).toEqual({
+			start: 0,
+			end: 5,
+			source: null,
+			query: "",
+		});
+		expect(replaced("今天 icon:| 很好")).toBe("icon:");
+	});
+
+	it("单字符别名光秃秃一个冒号不弹（英文提纲 `I: Introduction`）", () => {
+		expect(at("i:|")).toBeNull();
+		// 敲了字母、或写了来源段就不受此限
+		expect(at("i:s|")).toMatchObject({ query: "s" });
+		expect(at("i:ci:|")).toMatchObject({ source: "ci", query: "" });
+	});
+
+	it("两字以上的自定义别名光秃秃一个冒号也弹", () => {
+		expect(at("ii:|", { prefix: "icon", alias: "ii" })).toMatchObject({
+			source: null,
+			query: "",
+		});
+	});
+
 	it("全角冒号（中文输入法）", () => {
 		expect(at("icon：su|")).toMatchObject({ source: null, query: "su" });
 		expect(at("icon：mdi：ho|")).toMatchObject({
@@ -104,8 +128,6 @@ describe("写了来源段", () => {
 
 describe("不该触发的情形", () => {
 	it.each([
-		["icon:|", "光秃秃一个前缀会列出上千个图标"],
-		["i:|", "别名同理"],
 		["|", "空行"],
 		["hello |", "刚敲了空格"],
 		["myicon:su|", "贴在别的词后面"],

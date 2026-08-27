@@ -12,9 +12,18 @@ const CATALOG: IconCandidate[] = [
 const labels = (items: IconCandidate[]) => items.map((item) => item.label);
 
 describe("filterCandidates", () => {
-	it("空 query 不返回任何东西（否则一次列出上千个图标）", () => {
-		expect(filterCandidates(CATALOG, "", [], 30)).toEqual([]);
-		expect(filterCandidates(CATALOG, "   ", [], 30)).toEqual([]);
+	it("空 query 直接列出整池，按字典序（不按长度）", () => {
+		expect(labels(filterCandidates(CATALOG, "", [], 30))).toEqual([
+			"home",
+			"my-sun-logo",
+			"sun",
+			"sunrise",
+			"sunset",
+		]);
+		// 只有空白也算空 query
+		expect(labels(filterCandidates(CATALOG, "   ", [], 30))).toEqual(
+			labels(filterCandidates(CATALOG, "", [], 30)),
+		);
 	});
 
 	it("完全相同 > 前缀命中 > 包含命中", () => {
@@ -100,35 +109,48 @@ describe("filterCandidates", () => {
 	});
 });
 
-describe("filterCandidates：写了来源段之后允许空 query", () => {
-	it("allowEmptyQuery 时列出整池，按字典序（不按长度）", () => {
+describe("filterCandidates：浏览态（空 query）", () => {
+	it("最近使用过的仍然排最前", () => {
 		expect(
-			labels(
-				filterCandidates(CATALOG, "", [], 30, { allowEmptyQuery: true }),
-			),
-		).toEqual(["home", "my-sun-logo", "sun", "sunrise", "sunset"]);
-	});
-
-	it("浏览时最近使用过的仍然排最前", () => {
-		expect(
-			labels(
-				filterCandidates(CATALOG, "", ["lucide-sunset"], 30, {
-					allowEmptyQuery: true,
-				}),
-			),
+			labels(filterCandidates(CATALOG, "", ["lucide-sunset"], 30)),
 		).toEqual(["sunset", "home", "my-sun-logo", "sun", "sunrise"]);
 	});
 
 	it("仍然守着上限", () => {
+		expect(filterCandidates(CATALOG, "", [], 2)).toHaveLength(2);
+	});
+});
+
+describe("filterCandidates：matchFullId", () => {
+	// `icon:ci:` 下的候选池形态：label 是相对来源的名字，id 全都以 CI- 开头
+	const CI_POOL: IconCandidate[] = [
+		{ id: "CI-mdi-home", label: "mdi-home", source: "custom-icons" },
+		{ id: "CI-tabler-star", label: "tabler-star", source: "custom-icons" },
+	];
+
+	it("关掉时只拿 label 匹配：来源段的字母不再漏进结果", () => {
+		// 完整 id 人人都含 `ci`，但没有一个 label 含它
+		expect(filterCandidates(CI_POOL, "ci", [], 30, { matchFullId: false }))
+			.toEqual([]);
+		// label 真的命中时照常给
 		expect(
-			filterCandidates(CATALOG, "", [], 2, { allowEmptyQuery: true }),
-		).toHaveLength(2);
+			labels(filterCandidates(CI_POOL, "home", [], 30, { matchFullId: false })),
+		).toEqual(["mdi-home"]);
 	});
 
-	it("没开 allowEmptyQuery 时空 query 依旧什么都不给", () => {
-		expect(
-			filterCandidates(CATALOG, "", [], 30, { allowEmptyQuery: false }),
-		).toEqual([]);
+	it("关掉后 label 里真含来源字母的仍然命中（不是无脑屏蔽 `ci`）", () => {
+		const pool: IconCandidate[] = [
+			{ id: "CI-mdi-circle", label: "mdi-circle", source: "custom-icons" },
+		];
+		expect(labels(filterCandidates(pool, "ci", [], 30, { matchFullId: false })))
+			.toEqual(["mdi-circle"]);
+	});
+
+	it("默认开着：完整 id 参与匹配（没写来源段时的行为不变）", () => {
+		expect(labels(filterCandidates(CI_POOL, "ci", [], 30))).toEqual([
+			"mdi-home",
+			"tabler-star",
+		]);
 	});
 });
 
