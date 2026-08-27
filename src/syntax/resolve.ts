@@ -105,6 +105,27 @@ export type IconIdProvider = () => string[];
 export type ExtraIconProbe = (id: string) => boolean;
 
 /**
+ * 「某个图标包里到底有哪些图标」的**权威**来源。
+ *
+ * 这是本模块唯一不能靠字符串前缀自己算的东西。`CI-<packId>-<name>`
+ * **不可逆向切分**（packId 与 name 都可含连字符），所以按前缀 `CI-mdi-` 收窄
+ * 会把**另一个包**的图标也捞进来：装了 `mdi` 与 `mdi-light` 两个包时，
+ * `icon:mdi:` 会列出 `CI-mdi-light-home`，label 还成了 `light-home`。
+ * 停用但图标仍在注册表里的包同理会被列出来。
+ * 那正是本项目最想避免的「图标随机不出来、用户查不出原因」。
+ *
+ * 生产环境接 Custom Icons 的 `api.catalog()`——它的分组来自已启用包的 manifest，
+ * 没有任何猜测。三态语义：
+ *
+ * | 返回 | 含义 | 后果 |
+ * | --- | --- | --- |
+ * | `null` | **答不了**（提供方不在场 / 未接线） | 退回前缀匹配（裸装下没有 `CI-*`，本来就空） |
+ * | `[]` | 答了：没这个包 | 空列表。**不退回前缀匹配**，否则上面那个 bug 又回来了 |
+ * | `[...]` | 该包全部图标的注册 id | 按它建候选 |
+ */
+export type PackIconsProvider = (packId: string) => readonly string[] | null;
+
+/**
  * 解析器。
  *
  * **必须缓存**：同一个记号在渲染热路径上会被反复解析。
@@ -115,6 +136,8 @@ export class IconResolver {
 
 	readonly #hasExtra: ExtraIconProbe;
 
+	readonly #getPackIcons: PackIconsProvider;
+
 	/** 注册表快照，惰性建立。 */
 	#ids: Set<string> | null = null;
 
@@ -124,9 +147,18 @@ export class IconResolver {
 	/** `source|name` → 命中的 id（`null` 表示确认解析不出来，同样要缓存）。 */
 	readonly #cache = new Map<string, string | null>();
 
-	constructor(getIconIds: IconIdProvider, hasExtra: ExtraIconProbe = () => false) {
+	/**
+	 * 两个可选依赖都是**跨插件增强**，缺了整档消失而不是报错——这就是 P1
+	 * 「裸装可用」在本模块的落地：只传第一个参数，行为退回纯注册表查询。
+	 */
+	constructor(
+		getIconIds: IconIdProvider,
+		hasExtra: ExtraIconProbe = () => false,
+		getPackIcons: PackIconsProvider = () => null,
+	) {
 		this.#getIconIds = getIconIds;
 		this.#hasExtra = hasExtra;
+		this.#getPackIcons = getPackIcons;
 	}
 
 	/** 丢掉注册表快照与解析缓存。注册表可能变化时都要调。 */
@@ -172,7 +204,7 @@ export class IconResolver {
 	 * | `null` | 全部 | 去掉注册前缀（`lucide-sun` → `sun`） |
 	 * | `ci` | 全部 `CI-*` | `CI-` 之后的整段（`CI-mdi-home` → `mdi-home`） |
 	 * | `lucide` | `lucide-*` ＋ `CI-lucide-*` | 各自去掉前缀；**同名时内置胜出**（与解析链一致） |
-	 * | 其他（包 id） | `CI-<packId>-*` | 该前缀之后的部分（`CI-mdi-home` → `home`） |
+	 * | 其他（包 id） | 该包的**权威成员表**（{@link PackIconsProvider}），答不了才退回 `CI-<packId>-*` 前缀 | `CI-<packId>-` 之后的部分（`CI-mdi-home` → `home`） |
 	 *
 	 * 认不出的来源段返回空列表——补全自然什么都不显示，比乱列一堆好。
 	 */
@@ -286,14 +318,50 @@ export class IconResolver {
 			return [...byLabel.values()];
 		}
 
-		const packPrefix = `${CI_PREFIX}${source}-`;
-		return ids
-			.filter((id) => id.startsWith(packPrefix))
-			.map((id) => ({
+		return this.#buildPackCatalog(source, ids);
+	}
+
+	/**
+	 * 某个图标包那一段。**能问到权威成员列表就绝不按前缀猜**，见
+	 * {@link PackIconsProvider}：`CI-mdi-` 这个前缀会把 `mdi-light` 包的图标
+	 * 一并捞进来，而两个包同时装是完全正常的用法。
+	 *
+	 * 拿到权威列表后剥 `CI-<packId>-` **不再是猜**：那是对「已知属于本包」的 id
+	 * 做正向操作，与 {@link tokenFor} 的构造方向一致，所以
+	 * 「来源段 + label 一定解析回自己」这条不变量继续成立。
+	 */
+	#buildPackCatalog(packId: string, fallbackIds: string[]): IconCandidate[] {
+		const packPrefix = `${CI_PREFIX}${packId}-`;
+		const authoritative = this.#getPackIcons(packId);
+
+		if (authoritative === null) {
+			// 答不了（提供方不在场）：退回前缀匹配。裸装下没有任何 CI-*，本来就是空列表
+			return fallbackIds
+				.filter((id) => id.startsWith(packPrefix))
+				.map((id) => ({
+					id,
+					label: id.slice(packPrefix.length),
+					source: "custom-icons" as const,
+				}));
+		}
+
+		const candidates: IconCandidate[] = [];
+		for (const id of authoritative) {
+			// 前缀对不上就没法给出能解析回来的 label（`<packId>:<label>` 会被
+			// 正向构造成 CI-<packId>-<label>）。理论上不会发生，真发生了宁可不列
+			if (!id.startsWith(packPrefix)) continue;
+			if (!canReference(id)) continue;
+			// 与 #first 同一个判据：保证选中后一定解析得回来，不会插入死记号。
+			// 包刚装好而注册表还没跟上时这里会短暂为空，下一次变更事件就补齐
+			if (!this.#idSet().has(id) && !this.#hasExtra(id)) continue;
+
+			candidates.push({
 				id,
 				label: id.slice(packPrefix.length),
-				source: "custom-icons" as const,
-			}));
+				source: "custom-icons",
+			});
+		}
+		return candidates;
 	}
 
 	/**

@@ -416,6 +416,109 @@ describe("API 补充档：只有 Custom Icons 的 api.renderTo 画得出来的�
 	});
 });
 
+describe("包成员表：`icon:<packId>:` 该列哪些图标", () => {
+	/**
+	 * 这一组钉着**动手改的理由**：按 `CI-mdi-` 前缀筛会把 `mdi-light` 包的图标一并
+	 * 捞进来，而两个包同时装是完全正常的用法。前缀不可靠是因为
+	 * `CI-<packId>-<name>` 不可逆向切分——packId 与 name 都能含连字符。
+	 */
+	const TWO_PACKS = [
+		"lucide-sun",
+		"CI-mdi-home",
+		"CI-mdi-light-home",
+		"CI-mdi-light-account",
+	];
+
+	/** 提供方在场时的权威分组（对应契约 `catalog()` 里那两段）。 */
+	const AUTHORITATIVE: Record<string, string[]> = {
+		mdi: ["CI-mdi-home"],
+		"mdi-light": ["CI-mdi-light-home", "CI-mdi-light-account"],
+	};
+
+	function withPacks(ids: readonly string[]): IconResolver {
+		return new IconResolver(
+			() => [...ids],
+			() => false,
+			(packId) => AUTHORITATIVE[packId] ?? [],
+		);
+	}
+
+	const labelsOf = (resolver: IconResolver, source: string) =>
+		resolver
+			.catalogFor(source)
+			.map((candidate) => candidate.label)
+			.sort();
+
+	it("两个包名互为前缀时不串味（这就是那个缺陷）", () => {
+		const resolver = withPacks(TWO_PACKS);
+		expect(labelsOf(resolver, "mdi")).toEqual(["home"]);
+		expect(labelsOf(resolver, "mdi-light")).toEqual(["account", "home"]);
+	});
+
+	it("没有权威表时退回前缀匹配，缺陷复现——正是它证明修复有效", () => {
+		// 同一份注册表，只是不接提供方：`mdi` 段会多出 mdi-light 的两个
+		expect(labelsOf(resolverFor(TWO_PACKS), "mdi")).toEqual([
+			"home",
+			"light-account",
+			"light-home",
+		]);
+	});
+
+	it("包已停用但图标还在注册表里 → 不列（前缀匹配认不出这个）", () => {
+		// 权威表里没有 ph 这一段 = 「答了：没这个包」，不该退回前缀匹配
+		const resolver = withPacks([...TWO_PACKS, "CI-ph-home"]);
+		expect(resolver.catalogFor("ph")).toEqual([]);
+	});
+
+	it("权威表里有、注册表还没跟上的条目会被剔掉（不列出画不出来的）", () => {
+		const resolver = new IconResolver(
+			() => ["CI-mdi-home"],
+			() => false,
+			() => ["CI-mdi-home", "CI-mdi-not-registered-yet"],
+		);
+		expect(labelsOf(resolver, "mdi")).toEqual(["home"]);
+	});
+
+	it("那批只有 api 画得出来的仍然列（与 resolve 的判据一致）", () => {
+		const resolver = new IconResolver(
+			() => [],
+			(id) => id === "CI-mdi-api-only",
+			() => ["CI-mdi-api-only"],
+		);
+		expect(labelsOf(resolver, "mdi")).toEqual(["api-only"]);
+	});
+
+	it("列出来的每一条仍然能被「来源段 + label」解析回自己", () => {
+		const resolver = withPacks(TWO_PACKS);
+		for (const source of ["mdi", "mdi-light"]) {
+			for (const candidate of resolver.catalogFor(source)) {
+				expect(
+					resolver.resolve(token(`icon:${source}:${candidate.label}`)),
+				).toBe(candidate.id);
+			}
+		}
+	});
+
+	it("按来源段缓存，不会每敲一次就问一遍提供方", () => {
+		let calls = 0;
+		const resolver = new IconResolver(
+			() => [...TWO_PACKS],
+			() => false,
+			(packId) => {
+				calls += 1;
+				return AUTHORITATIVE[packId] ?? [];
+			},
+		);
+		resolver.catalogFor("mdi");
+		resolver.catalogFor("mdi");
+		expect(calls).toBe(1);
+
+		resolver.invalidate();
+		resolver.catalogFor("mdi");
+		expect(calls).toBe(2);
+	});
+});
+
 describe("tokenFor：带修饰符（图标选择器那条路径用）", () => {
 	const resolver = resolverFor(WITH_CUSTOM_ICONS);
 
