@@ -25,9 +25,20 @@ export class InsertIconModal extends FuzzySuggestModal<IconCandidate> {
 		return [...this.#plugin.resolver.catalog()];
 	}
 
-	/** 用完整注册 id 做模糊搜索：它既是展示文本，也是回车后写进文件的东西。 */
+	/**
+	 * 搜索用的文本：**短名与完整 id 拼在一起**，所以两种形态都搜得到——
+	 * 敲 `sun` 命中 `lucide-sun`，敲 `CI-mdi` 也命中 `CI-mdi-outlined-1k`。
+	 * 与 `EditorSuggest` 那条路径的匹配口径一致（见 `ranking.ts` 的 `matchScore`）。
+	 *
+	 * **这不是展示文本**：候选行由 {@link renderIconSuggestion} 画，短名当主、
+	 * 完整 id 弱化在后；回车后写进文件的是 `item.id`。
+	 * 因此这里不必顾及可读性，只管让搜索够宽。
+	 *
+	 * 也因为展示不走它，`FuzzyMatch.matches` 的高亮下标（相对本字符串）用不上，
+	 * 渲染时本来就忽略——不存在下标错位的问题。
+	 */
 	getItemText(item: IconCandidate): string {
-		return item.id;
+		return item.id === item.label ? item.id : `${item.label} ${item.id}`;
 	}
 
 	renderSuggestion(match: FuzzyMatch<IconCandidate>, el: HTMLElement): void {
