@@ -348,3 +348,92 @@ describe("tokenFor：补全写进文件的形态", () => {
 		);
 	});
 });
+
+describe("API 补充档：只有 Custom Icons 的 api.renderTo 画得出来的那批", () => {
+	/**
+	 * 现实中落在这一档的只有 Lucide 差集：提供方 bundle 里的 lucide-react 比
+	 * Obsidian 内置多出来的图标，**不在注册表**，公共 setIcon 画不出来。
+	 * 这里用 `lucide-sparkles` 假装那批。
+	 */
+	const EXTRA = new Set(["lucide-sparkles"]);
+
+	function withProbe(ids: readonly string[]): IconResolver {
+		return new IconResolver(
+			() => [...ids],
+			(id) => EXTRA.has(id),
+		);
+	}
+
+	it("注册表里没有、探测器说有 → 解析成功（差集因此可用）", () => {
+		expect(withProbe(BUILTIN_ONLY).resolve(token("icon:lucide-sparkles"))).toBe(
+			"lucide-sparkles",
+		);
+		// 简写也走得通：② 档构造出 lucide-sparkles 后由探测器兜住
+		expect(withProbe(BUILTIN_ONLY).resolve(token("icon:sparkles"))).toBe(
+			"lucide-sparkles",
+		);
+	});
+
+	it("两边都没有仍然是 null（保留原文那条路不变）", () => {
+		expect(withProbe(BUILTIN_ONLY).resolve(token("icon:nope"))).toBeNull();
+	});
+
+	it("不传探测器时整档消失——这就是提供方不在场的形态（P1）", () => {
+		expect(
+			resolverFor(BUILTIN_ONLY).resolve(token("icon:lucide-sparkles")),
+		).toBeNull();
+	});
+
+	/**
+	 * 这一条钉着 `#first` 的两遍扫描。注册表里的 id 用公共 setIcon 就能画，
+	 * 提供方被禁用也不受影响；API 档只有提供方在场时才行。所以哪怕 API 档的候选
+	 * 排在候选序列前面，也该优先给注册表里那个，否则一个本来稳定的记号会平白
+	 * 依赖上提供方。
+	 */
+	it("注册表整体先于 API 档，即使 API 档的候选排在前面", () => {
+		// lucide: 的候选序列是 [lucide-x, CI-lucide-x]：前者只有探测器有，
+		// 后者真在注册表里 —— 该给后者
+		const resolver = new IconResolver(
+			() => ["CI-lucide-star"],
+			(id) => id === "lucide-star",
+		);
+		expect(resolver.resolve(token("icon:lucide:star"))).toBe("CI-lucide-star");
+	});
+
+	it("探测结果同样进缓存，不会每次渲染都问一遍提供方", () => {
+		let calls = 0;
+		const resolver = new IconResolver(
+			() => [],
+			(id) => {
+				calls += 1;
+				return id === "lucide-sparkles";
+			},
+		);
+		resolver.resolve(token("icon:lucide-sparkles"));
+		const after = calls;
+		resolver.resolve(token("icon:lucide-sparkles"));
+		expect(calls).toBe(after);
+	});
+});
+
+describe("tokenFor：带修饰符（图标选择器那条路径用）", () => {
+	const resolver = resolverFor(WITH_CUSTOM_ICONS);
+
+	it("修饰符跟在 id 后面，用逗号分隔", () => {
+		expect(resolver.tokenFor("lucide-sun", {}, ["#e5a50a"])).toBe(
+			"`icon:lucide-sun,#e5a50a`",
+		);
+	});
+
+	it("空修饰符列表等于不写（默认色不该在记号里留下痕迹）", () => {
+		expect(resolver.tokenFor("lucide-sun", {}, [])).toBe("`icon:lucide-sun`");
+		expect(resolver.tokenFor("lucide-sun")).toBe("`icon:lucide-sun`");
+	});
+
+	it("带修饰符的记号仍然解析回同一个 id", () => {
+		const body = resolver.tokenFor("CI-mdi-home", {}, ["#e5a50a"]).slice(1, -1);
+		const parsed = token(body);
+		expect(resolver.resolve(parsed)).toBe("CI-mdi-home");
+		expect(parsed.modifiers).toEqual(["#e5a50a"]);
+	});
+});

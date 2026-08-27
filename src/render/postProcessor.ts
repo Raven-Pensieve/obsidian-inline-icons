@@ -50,14 +50,15 @@ function processCodeSpans(plugin: InlineIconsPlugin, el: HTMLElement): void {
 			continue;
 		}
 
-		code.replaceWith(
-			createIconEl(
-				code.ownerDocument,
-				iconId,
-				token,
-				plugin.grammarOptions,
-			),
-		);
+		// 解析成功却画不出来：图标刚被删 / 包刚被停用而缓存还没作废。
+		// **仍然保留原文**——replaceWith 一个空 span 就是那个「空白记号」缺陷
+		const iconEl = createIconEl(plugin, code.ownerDocument, iconId, token);
+		if (iconEl === null) {
+			markUnresolved(code, token.name);
+			continue;
+		}
+
+		code.replaceWith(iconEl);
 	}
 }
 

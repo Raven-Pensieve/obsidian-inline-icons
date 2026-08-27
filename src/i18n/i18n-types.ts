@@ -89,6 +89,10 @@ type RootTranslation = {
 		 * C​u​s​t​o​m​ ​I​c​o​n​s
 		 */
 		sourceCustomIcons: string
+		/**
+		 * 我​的​ ​S​V​G
+		 */
+		sourceUserSvg: string
 	}
 	commands: {
 		insertIcon: {
@@ -100,6 +104,21 @@ type RootTranslation = {
 			 * 搜​索​图​标​…
 			 */
 			placeholder: string
+		}
+		pickIcon: {
+			/**
+			 * 从​图​标​库​插​入​图​标
+			 */
+			name: string
+			/**
+			 * 没​有​启​用​ ​C​u​s​t​o​m​ ​I​c​o​n​s​，​改​用​内​置​的​图​标​搜​索
+			 */
+			unavailable: string
+			/**
+			 * 图​标​「​{​i​d​}​」​的​ ​i​d​ ​里​有​冒​号​、​逗​号​或​反​引​号​，​写​不​进​记​号
+			 * @param {unknown} id
+			 */
+			unreferenceable: RequiredParams<'id'>
 		}
 		reapply: {
 			/**
@@ -184,6 +203,10 @@ export type TranslationFunctions = {
 		 * Custom Icons
 		 */
 		sourceCustomIcons: () => LocalizedString
+		/**
+		 * 我的 SVG
+		 */
+		sourceUserSvg: () => LocalizedString
 	}
 	commands: {
 		insertIcon: {
@@ -195,6 +218,20 @@ export type TranslationFunctions = {
 			 * 搜索图标…
 			 */
 			placeholder: () => LocalizedString
+		}
+		pickIcon: {
+			/**
+			 * 从图标库插入图标
+			 */
+			name: () => LocalizedString
+			/**
+			 * 没有启用 Custom Icons，改用内置的图标搜索
+			 */
+			unavailable: () => LocalizedString
+			/**
+			 * 图标「{id}」的 id 里有冒号、逗号或反引号，写不进记号
+			 */
+			unreferenceable: (arg: { id: unknown }) => LocalizedString
 		}
 		reapply: {
 			/**

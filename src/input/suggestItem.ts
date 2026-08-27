@@ -1,6 +1,8 @@
+import { getCustomIconsApi } from "@src/api/customIcons";
 import { LL } from "@src/i18n/i18n";
+import type InlineIconsPlugin from "@src/main";
 import type { IconCandidate } from "@src/syntax/resolve";
-import { setIcon } from "obsidian";
+import { setIcon, type App } from "obsidian";
 
 /** 候选行的类名，样式在 `styles/style.css`。 */
 export const SUGGEST_ITEM_CLASS = "ii-suggest-item";
@@ -27,6 +29,7 @@ export const SUGGEST_ITEM_CLASS = "ii-suggest-item";
  * `EditorSuggest` 与插入命令的模态框共用这一份，保证两条输入路径长得一样。
  */
 export function renderIconSuggestion(
+	plugin: InlineIconsPlugin,
 	candidate: IconCandidate,
 	el: HTMLElement,
 ): void {
@@ -41,19 +44,35 @@ export function renderIconSuggestion(
 	}
 	el.createSpan({
 		cls: "ii-suggest-source",
-		text: sourceLabel(candidate.source),
+		text: sourceLabel(plugin.app, candidate),
 	});
 }
 
 /**
- * 来源标签。
+ * 来源标签，**能细分到具体图标包就细分**。
  *
- * 只分「内置 / Custom Icons」两档：`getIconIds()` 给的是扁平 id，
- * `CI-mdi-home` 无法反推 packId 与 name 的切分点，细分到具体图标包要等
- * Custom Icons 暴露 `api.catalog()`（M3）。
+ * `getIconIds()` 只给一串扁平 id，而 `CI-mdi-home` 里哪段是 packId 不可反推
+ * （packId 与 name 都可含连字符）——所以单靠公共 API 只能分到
+ * 「内置 / Custom Icons」两档，一装图标包，右边那列就成了一片相同的
+ * 「Custom Icons」，等于没有分组。
+ *
+ * Custom Icons 的 `describe()` 正是为这件事存在的（契约里那句「切分点由提供方回答，
+ * 消费方不许自己猜」）：它认得出 `CI-mdi-home` 来自 mdi 包，于是这里能直接显示包名。
+ * 提供方不在场时自然退回两档——**这不是降级路径，而是裸装时的正常形态**（P1）。
+ *
+ * 每行调一次 `describe()` 是廉价的：候选最多 {@link MAX_RESULTS} 行，
+ * 而提供方那边按 `revision` 缓存了反查索引，单次是查表而不是重建。
  */
-export function sourceLabel(source: IconCandidate["source"]): string {
-	return source === "custom-icons"
-		? LL.ui.sourceCustomIcons()
-		: LL.ui.sourceBuiltin();
+export function sourceLabel(app: App, candidate: IconCandidate): string {
+	if (candidate.source === "builtin") return LL.ui.sourceBuiltin();
+
+	const info = getCustomIconsApi(app)?.describe(candidate.id);
+	// 包名优先（`mdi` 这种 id 对用户没有意义，`Material Design Icons` 才有）
+	if (info?.source === "pack") {
+		return info.packName ?? info.packId ?? LL.ui.sourceCustomIcons();
+	}
+	if (info?.source === "user-svg") return LL.ui.sourceUserSvg();
+
+	// 提供方不在场，或那个 id 它也认不出来（别的插件注册的 CI-*）
+	return LL.ui.sourceCustomIcons();
 }
