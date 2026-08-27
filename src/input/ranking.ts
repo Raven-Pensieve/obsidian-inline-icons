@@ -15,20 +15,21 @@ export const RECENT_LIMIT = 20;
  * 1. **最近使用过的排在最前**，彼此之间按最近程度（`recent` 数组的顺序）；
  * 2. 其余按命中质量：完全相同 → 前缀命中 → 包含命中；同分时短名字在前，再按字典序。
  *
- * **query 为空时默认返回空列表**——空 query 会一次列出上千个图标，那不是补全。
- * 例外是 `allowEmptyQuery`：用户已经写了来源段（`icon:ci:`）时候选池已经被那个来源
- * 收窄过了，此时应当直接列出来让他挑，排序退化为「最近使用优先，其余按字典序」。
+ * **query 为空是正常状态**，不是「还没开始输入」：用户刚敲完 `icon:` 或 `icon:ci:`
+ * 就该看到池子里有什么（最近使用优先，其余按字典序），而不是被迫先猜一个字母——
+ * 那正好要求他先知道图标叫什么，是补全该解决的问题。数量由 `limit` 兜着。
+ *
+ * `matchFullId` 决定完整注册 id 是否参与匹配，见 {@link matchScore}。
  */
 export function filterCandidates(
 	catalog: readonly IconCandidate[],
 	query: string,
 	recent: readonly string[],
 	limit: number,
-	options: { allowEmptyQuery?: boolean } = {},
+	options: { matchFullId?: boolean } = {},
 ): IconCandidate[] {
 	const needle = query.trim().toLowerCase();
 	const browsing = needle === "";
-	if (browsing && options.allowEmptyQuery !== true) return [];
 
 	const scored: {
 		candidate: IconCandidate;
@@ -39,7 +40,7 @@ export function filterCandidates(
 	for (const candidate of catalog) {
 		let score = 0;
 		if (!browsing) {
-			score = matchScore(candidate, needle);
+			score = matchScore(candidate, needle, options.matchFullId !== false);
 			if (score < 0) continue;
 		}
 
@@ -76,17 +77,26 @@ export function withRecent(recent: readonly string[], id: string): string[] {
 }
 
 /**
- * 命中质量：0 完全相同 / 1 前缀 / 2 包含 / -1 不命中。
+ * 命中质量：0 完全相同 / 1 前缀 / 2 包含 / -1 不命中。中文 id 按包含匹配，不做分词。
  *
- * **短名与完整 id 都参与匹配**，取更好的那个：
- * 敲 `sun` 能命中 `lucide-sun`（短名前缀），敲 `CI-mdi` 也能命中 `CI-mdi-outlined-1k`
- * （完整 id 前缀）。中文 id 直接按包含匹配，不做分词。
+ * `matchFullId` 时**短名与完整 id 都参与匹配**，取更好的那个：敲 `sun` 命中
+ * `lucide-sun`（短名前缀），敲 `CI-mdi` 也命中 `CI-mdi-outlined-1k`（完整 id 前缀）。
+ * 没写来源段时就该这样——用户可能在敲任意一种形态。
+ *
+ * **写了来源段时必须关掉它**，否则注册前缀会漏进匹配：`icon:ci:` 下候选全是 `CI-*`，
+ * 完整 id 人人都含 `ci`，于是接着敲的每个字母都会拿去和 `CI-`／`CI-<packId>-` 这段比，
+ * 看起来就像「按来源段的字母做了一次模糊匹配」。来源段已经把池子钉死了，
+ * 此时只有 `label`（相对来源的名字，也就是用户接着要敲的那段）才该参与匹配。
  */
-function matchScore(candidate: IconCandidate, needle: string): number {
-	const best = Math.min(
-		scoreOne(candidate.label.toLowerCase(), needle),
-		scoreOne(candidate.id.toLowerCase(), needle),
-	);
+function matchScore(
+	candidate: IconCandidate,
+	needle: string,
+	matchFullId: boolean,
+): number {
+	const label = scoreOne(candidate.label.toLowerCase(), needle);
+	const best = matchFullId
+		? Math.min(label, scoreOne(candidate.id.toLowerCase(), needle))
+		: label;
 	return best === Number.MAX_SAFE_INTEGER ? -1 : best;
 }
 

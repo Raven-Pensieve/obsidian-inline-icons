@@ -64,8 +64,12 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 	/**
 	 * 候选池按来源段收窄：写了 `icon:ci:` 就只列用户 SVG，写了 `icon:mdi:` 就只列 mdi 包。
 	 *
-	 * 来源段已经把池子缩小了，所以此时**允许空 query**——用户敲完 `icon:ci:`
-	 * 就该直接看到里面有什么，而不是被迫再猜一个字母。
+	 * 两种情形下**空 query 都直接列出池子**（数量由 `maxResults` 兜着）：敲完 `icon:`
+	 * 或 `icon:ci:` 就该看到里面有什么，而不是被迫再猜一个字母。
+	 *
+	 * **写了来源段时关掉完整 id 匹配**：那时候选全是 `CI-*`，完整 id 人人都含来源段的
+	 * 字母，接着敲的每个字符都会拿去和 `CI-`／`CI-<packId>-` 这段比——看起来就像
+	 * 按来源段做了一次模糊匹配。此时只有相对来源的短名该参与匹配，见 {@link filterCandidates}。
 	 */
 	getSuggestions(context: EditorSuggestContext): IconCandidate[] {
 		const { maxResults, recent } = this.#plugin.settings.suggest;
@@ -74,7 +78,7 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 			context.query,
 			recent,
 			maxResults,
-			{ allowEmptyQuery: this.#source !== null },
+			{ matchFullId: this.#source === null },
 		);
 	}
 
