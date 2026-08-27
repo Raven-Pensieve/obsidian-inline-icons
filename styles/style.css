@@ -10,15 +10,23 @@
  * 颜色（标题里变大、加粗里变粗、链接里变成链接色）。这能生效的前提是注册进 Obsidian
  * 注册表的 SVG 没有硬编码 width/height —— Custom Icons 的 cleanSvg 在 addIcon 前
  * 已经剥掉了它们，sanitize 也会给无 fill 的图标补 fill="currentColor"。
+ *
+ * 那两个默认值写成 CSS 变量，于是修饰符（`icon:sun,1.5em,red`）只要覆盖变量就行 ——
+ * 盒模型仍然只定义在这里一处，renderIcon.ts 不写 width / color。
+ * 用户也可以在自己的 CSS 片段里改这两个变量的默认值。
  */
 
 .inline-icon {
+	--ii-icon-size: 1em;
+	--ii-icon-color: currentColor;
+
 	display: inline-flex;
-	width: 1em;
-	height: 1em;
-	/* 与基线对齐，否则图标会浮在文字上方 */
+	width: var(--ii-icon-size);
+	height: var(--ii-icon-size);
+	/* 与基线对齐，否则图标会浮在文字上方。用 em 而不是 --ii-icon-size：
+	   下沉量要跟着**文字**的字号走，图标放大时不该跟着往下掉 */
 	vertical-align: -0.125em;
-	color: currentColor;
+	color: var(--ii-icon-color);
 }
 
 .inline-icon > svg {
