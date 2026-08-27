@@ -1,7 +1,7 @@
 {
 	"name": "inline-icons",
 	"version": "0.0.0",
-	"description": "Render icons inline in your notes with a short code span, using Obsidian's built-in icons or any icon registered by Custom Icons.",
+	"description": "Render icons inline in your notes with a short code span, using built-in icons or any icon registered by Custom Icons.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node --env-file-if-exists=.env scripts/deploy.mjs link && node scripts/esbuild.config.mjs dev",
