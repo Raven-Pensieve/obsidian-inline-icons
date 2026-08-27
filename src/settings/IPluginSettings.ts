@@ -2,80 +2,69 @@
  * 插件设置的数据形状。
  *
  * 约定：每个可配置项的存储路径（点分 key）与此结构一一对应，例如
- * `general.greeting`、`appearance.fontScale`。声明式设置页的每个 `control`
- * 都以这个点分路径作为 `key`，由 {@link PluginSettingTab.getControlValue} /
+ * `syntax.prefix`、`suggest.maxResults`。声明式设置页的每个 `control` 都以这个
+ * 点分路径作为 `key`，由 {@link PluginSettingTab.getControlValue} /
  * {@link PluginSettingTab.setControlValue} 读写。
  *
- * 分组只是「就近归类」——顶层的 general / appearance / paths / advanced 四组恰好
- * 对应设置页的四个页面（tab），但结构与页面并非强绑定，你可以自由重排。
+ * 顶层三组恰好对应设置页的三个页面（tab）。
  */
-
-/** advanced 页「原生 list」演示用的一条书签。 */
-export interface IBookmark {
-	/** 展示名（list 每行的 text 控件绑定 `bookmarks.<i>.name`）。 */
-	name: string;
-	/** 目标路径（list 每行的 text 控件绑定 `bookmarks.<i>.path`）。 */
-	path: string;
-}
-
 export interface IPluginSettings {
-	/** 通用：toggle / text(+validate) / dropdown，以及依赖前者的 visible 联动项。 */
-	general: {
-		/** 总开关；关闭后 verboseLog 行通过 `visible` 谓词隐藏。 */
-		enableFeature: boolean;
-		/** 单行文本，带 `validate`（非空且 ≤ 20 字）。 */
-		greeting: string;
-		/** 下拉，取值受 dropdown 的 options 约束。 */
-		mode: "simple" | "advanced";
-		/** 仅在 enableFeature 为真时可见，演示 `visible` 联动。 */
-		verboseLog: boolean;
+	/** 语法：记号长什么样。**改这里等于改用户笔记的可读性，谨慎。** */
+	syntax: {
+		/**
+		 * 前缀词，默认 `icon`，落盘形态是 `` `icon:sun` ``。
+		 *
+		 * 改前缀会让已经写进笔记的旧记号解析失败（保留原文，不报错）。
+		 */
+		prefix: string;
+		/**
+		 * 是否连正文里**没有反引号**的 `icon:sun` 也渲染。
+		 *
+		 * 默认 `false`：这是逃生开关，代价是与正文文字抢记号（`icon:sunny`
+		 * 只能整段当成名字）。详见 `dev/syntax-spec.md`。
+		 */
+		renderBareToken: boolean;
 	};
-	/** 外观：color / slider(+displayFormat) / number(min/max/step)。 */
-	appearance: {
-		/** 颜色（HexString）。 */
-		accentColor: string;
-		/** 字号缩放，slider + displayFormat 显示百分比。 */
-		fontScale: number;
-		/** 最大条目数，number 控件（min/max/step）。 */
-		maxItems: number;
+	/** 渲染：两条互不相干的管线各自的开关。 */
+	render: {
+		/** 阅读模式 / 内嵌 / 悬浮预览（`registerMarkdownPostProcessor`）。 */
+		readingMode: boolean;
+		/** 实时预览（CM6 `registerEditorExtension`）。源码模式永不渲染。 */
+		livePreview: boolean;
 	};
-	/** 路径：file / folder(+includeRoot) / textarea(rows)。 */
-	paths: {
-		/** 模板文件路径（file 控件，带扩展名筛选）。 */
-		templateFile: string;
-		/** 输出文件夹路径（folder 控件）。 */
-		outputFolder: string;
-		/** 多行文本（textarea）。 */
-		header: string;
-	};
-	/** 进阶：原生 list（书签）+ React 孤岛（标签）。 */
-	advanced: {
-		/** 原生 `type: "list"` 演示：可增删、拖拽排序，每行内嵌 text 控件。 */
-		bookmarks: IBookmark[];
-		/** React 孤岛演示：由 TagListEditor 通过 SettingsStore 自行读写。 */
-		tags: string[];
+	/** 补全：输入记号的两条路径。反引号一律由插件补（P2）。 */
+	suggest: {
+		/** 输入时是否弹出候选（`EditorSuggest`）。命令入口不受此开关影响。 */
+		enabled: boolean;
+		/**
+		 * 输入别名，默认 `i`——敲 `i:su` 就能弹出候选。
+		 *
+		 * **只存在于补全里，永远不会写进文件。**
+		 */
+		alias: string;
+		/** 候选数量上限：装了图标包后可选图标可达上万个。 */
+		maxResults: number;
+		/** 最近使用过的图标 id，最新的在前。由插件维护，不在设置页展示。 */
+		recent: string[];
 	};
 }
 
 export const DEFAULT_SETTINGS: IPluginSettings = {
-	general: {
-		enableFeature: true,
-		greeting: "Hello, Obsidian",
-		mode: "simple",
-		verboseLog: false,
+	syntax: {
+		prefix: "icon",
+		renderBareToken: false,
 	},
-	appearance: {
-		accentColor: "#7c3aed",
-		fontScale: 1,
-		maxItems: 20,
+	render: {
+		readingMode: true,
+		livePreview: true,
 	},
-	paths: {
-		templateFile: "",
-		outputFolder: "",
-		header: "",
-	},
-	advanced: {
-		bookmarks: [],
-		tags: [],
+	suggest: {
+		enabled: true,
+		alias: "i",
+		maxResults: 30,
+		recent: [],
 	},
 };
+
+/** 前缀词与输入别名共用的字符集：不能含冒号、空白或其他会破坏边界的字符。 */
+export const WORD_PATTERN = /^[A-Za-z0-9_-]+$/;

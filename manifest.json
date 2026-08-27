@@ -2,7 +2,7 @@
 	"id": "inline-icons",
 	"name": "Inline Icons",
 	"version": "0.0.0",
-	"minAppVersion": "1.11.0",
+	"minAppVersion": "1.13.0",
 	"description": "Render icons inline in your notes with a short code span, using Obsidian's built-in icons or any icon registered by Custom Icons.",
 	"author": "RavenHogWarts",
 	"authorUrl": "https://github.com/Raven-Pensieve",
