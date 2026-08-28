@@ -1,6 +1,6 @@
 {
 	"name": "inline-icons",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"description": "Render icons inline in your notes with a short code span, using built-in icons or any icon registered by Custom Icons.",
 	"main": "main.js",
 	"scripts": {
