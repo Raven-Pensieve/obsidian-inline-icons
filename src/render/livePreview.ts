@@ -28,14 +28,14 @@ import { createIconEl, UNRESOLVED_CLASS } from "./renderIcon";
  *
  * 三条不能省的规则：
  *
- * 1. **只扫 `visibleRanges`**——代价与可见行数成正比，而不是与文档长度成正比；
- * 2. **光标/选区与记号有交叠就不装饰**，否则记号无法编辑（点进去就被 widget 吃掉）；
- * 3. **源码模式一律不渲染**（`editorLivePreviewField` 为 false），
- *    否则用户没有任何办法看到自己写的原文。
+ * 1. 只扫 `visibleRanges`，代价与可见行数成正比而非与文档长度成正比；
+ * 2. 光标 / 选区与记号有交叠就不装饰，否则记号无法编辑（点进去就被 widget 吃掉）；
+ * 3. 源码模式一律不渲染（`editorLivePreviewField` 为 false），否则用户没有任何
+ *    办法看到自己写的原文。
  *
  * 节点判定不自己写正则，而是问 Obsidian 的语法树：`node.type.name` 是下划线拼接的
- * token 串（如 `inline-code_formatting_formatting-code`），split 成 Set 后判断——
- * 这比正则判断「是否在代码块里」可靠得多。
+ * token 串（如 `inline-code_formatting_formatting-code`），split 成 Set 后判断，
+ * 比正则判断「是否在代码块里」可靠得多。
  */
 export function inlineIconsExtension(plugin: InlineIconsPlugin): Extension {
 	return ViewPlugin.define(
@@ -52,14 +52,13 @@ class InlineIconsViewPlugin implements PluginValue {
 	/**
 	 * 上次构建装饰时的解析器修订号。
 	 *
-	 * **这是「装包后实时预览不跟着变」的修复点。** 下面那四个 CM6 信号都只描述
-	 * *文档/视图* 的变化，而图标集合变化（装包、删 SVG、启停 Custom Icons）一个都不触发：
-	 * `updateOptions()` 会让 CM6 重新配置扩展，但已缓存的 `decorations` 不会因此重算，
-	 * 于是旧装饰连同它引用的旧 iconId 一起留在原地——该退回原文的没退、该出图标的不出，
-	 * 直到用户碰一下文档。
+	 * {@link update} 里那四个 CM6 信号都只描述文档 / 视图的变化，而图标集合变化
+	 * （装包、删 SVG、启停 Custom Icons）一个都不触发：`updateOptions()` 会让 CM6
+	 * 重新配置扩展，但已缓存的 `decorations` 不会因此重算，于是旧装饰连同它引用的
+	 * 旧 iconId 一起留在原地，直到用户碰一下文档。
 	 *
 	 * 比对 `resolver.revision` 是最省的补法：它只在 `invalidate()` 时动，
-	 * 而每次动都正好意味着「解析结果可能变了」。
+	 * 而每次动都意味着解析结果可能变了。
 	 */
 	#revision: number;
 
@@ -95,8 +94,8 @@ class InlineIconsViewPlugin implements PluginValue {
 /**
  * 图标 widget。
  *
- * `toDOM` 必须用 **`view.dom.ownerDocument`**——popout 窗口是另一个 document。
- * `eq` 决定 widget 能否复用：不实现的话每次 update 都会重建 DOM。
+ * `toDOM` 必须用 `view.dom.ownerDocument`：popout 窗口是另一个 document。
+ * `eq` 决定 widget 能否复用，不实现的话每次 update 都会重建 DOM。
  */
 class IconWidget extends WidgetType {
 	constructor(
@@ -108,9 +107,8 @@ class IconWidget extends WidgetType {
 	}
 
 	/**
-	 * **修饰符也要参与比较**：它们决定 DOM 上那两个 CSS 变量，
-	 * 漏掉的话把 `,1.5em` 改成 `,2em` 后 widget 会被判定为「没变」而原样复用，
-	 * 于是尺寸不跟着动——记号明明改了却看不出效果。
+	 * 修饰符也要参与比较：它们决定 DOM 上那两个 CSS 变量，漏掉的话把 `,1.5em`
+	 * 改成 `,2em` 后 widget 会被判为「没变」而原样复用，尺寸不跟着动。
 	 */
 	eq(other: IconWidget): boolean {
 		return (
@@ -122,12 +120,12 @@ class IconWidget extends WidgetType {
 	}
 
 	/**
-	 * 画不出来时**回落成原文那段代码**，而不是留一个空 span。
+	 * 画不出来时回落成原文那段代码，而不是留一个空 span。
 	 *
-	 * `buildDecorations` 已经问过解析链了，所以走到这里还失败只可能是竞态——
-	 * 图标刚被删 / 包刚被停用，而变更事件还没把缓存冲掉。CM6 的 `toDOM` 必须
-	 * 返回一个元素（没有「这处不装饰」的退路，那个判断在 builder 那一层），
-	 * 于是这里自己把原文重建出来，与阅读模式那条管线的表现对齐。
+	 * `buildDecorations` 已经问过解析链，走到这里还失败只可能是竞态（图标刚被删 /
+	 * 包刚被停用，而变更事件还没把缓存冲掉）。CM6 的 `toDOM` 必须返回一个元素，
+	 * 「这处不装饰」的判断在 builder 那一层，所以这里自行重建原文，
+	 * 与阅读模式那条管线的表现对齐。
 	 */
 	toDOM(view: EditorView): HTMLElement {
 		const doc = view.dom.ownerDocument;

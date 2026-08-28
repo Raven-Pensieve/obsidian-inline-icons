@@ -418,9 +418,9 @@ describe("API 补充档：只有 Custom Icons 的 api.renderTo 画得出来的�
 
 describe("包成员表：`icon:<packId>:` 该列哪些图标", () => {
 	/**
-	 * 这一组钉着**动手改的理由**：按 `CI-mdi-` 前缀筛会把 `mdi-light` 包的图标一并
-	 * 捞进来，而两个包同时装是完全正常的用法。前缀不可靠是因为
-	 * `CI-<packId>-<name>` 不可逆向切分——packId 与 name 都能含连字符。
+	 * 按 `CI-mdi-` 前缀筛会把 `mdi-light` 包的图标一并捞进来，而两个包同时装是
+	 * 完全正常的用法。前缀不可靠是因为 `CI-<packId>-<name>` 不可逆向切分：
+	 * packId 与 name 都能含连字符。
 	 */
 	const TWO_PACKS = [
 		"lucide-sun",
@@ -449,13 +449,13 @@ describe("包成员表：`icon:<packId>:` 该列哪些图标", () => {
 			.map((candidate) => candidate.label)
 			.sort();
 
-	it("两个包名互为前缀时不串味（这就是那个缺陷）", () => {
+	it("两个包名互为前缀时不串味", () => {
 		const resolver = withPacks(TWO_PACKS);
 		expect(labelsOf(resolver, "mdi")).toEqual(["home"]);
 		expect(labelsOf(resolver, "mdi-light")).toEqual(["account", "home"]);
 	});
 
-	it("没有权威表时退回前缀匹配，缺陷复现——正是它证明修复有效", () => {
+	it("没有权威表时退回前缀匹配，此时前缀不可靠的后果可见", () => {
 		// 同一份注册表，只是不接提供方：`mdi` 段会多出 mdi-light 的两个
 		expect(labelsOf(resolverFor(TWO_PACKS), "mdi")).toEqual([
 			"home",

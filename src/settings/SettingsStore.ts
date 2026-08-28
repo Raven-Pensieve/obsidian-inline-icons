@@ -23,8 +23,7 @@ export default class SettingsStore {
 
 	get store() {
 		// 必须返回稳定引用：useSyncExternalStore 用 subscribe 的引用相等性判断是否
-		// 需要退订重订。若每次访问都返回新对象（旧写法 Object.assign({}, …)），
-		// 组件每次渲染都会退订再重订，白白抖动。
+		// 需要退订重订，每次返回新对象会让组件每次渲染都退订再重订
 		return this.#store;
 	}
 
@@ -40,8 +39,11 @@ export default class SettingsStore {
 		this.#subscribers.forEach((callback) => callback());
 	}
 
+	/**
+	 * 以默认值的结构为准合并已存盘的设置，使新增字段自动补齐、类型不符的值回退。
+	 */
 	#mergeWithDefaults<T>(saved: unknown, defaults: T): T {
-		// 如果默认值是对象（且非数组），则递归按默认结构构建结果
+		// 默认值是对象（且非数组）：递归按默认结构构建结果
 		if (
 			defaults !== null &&
 			typeof defaults === "object" &&
@@ -92,19 +94,17 @@ export default class SettingsStore {
 	}
 
 	/**
-	 * 通过路径更新特定设置值
-	 * @param path 设置路径
-	 * @param value 新的设置值
+	 * 按点分路径更新单个设置值，例如 `syntax.prefix`。
+	 *
+	 * @throws 路径在现有设置里不存在时抛出。
 	 */
 	async updateSettingByPath<T>(path: string, value: T) {
-		// 创建设置的深拷贝
 		const newSettings = JSON.parse(
 			JSON.stringify(this.#plugin.settings),
 		) as IPluginSettings;
 		const pathParts = path.split(".");
 		let current: unknown = newSettings;
 
-		// 遍历路径，找到父对象
 		for (let i = 0; i < pathParts.length - 1; i++) {
 			const part = pathParts[i];
 			if (
@@ -118,7 +118,6 @@ export default class SettingsStore {
 			}
 		}
 
-		// 设置最终值
 		const finalPart = pathParts[pathParts.length - 1];
 		if (
 			typeof current === "object" &&
@@ -130,23 +129,21 @@ export default class SettingsStore {
 			throw new Error(`Invalid setting path: ${path}`);
 		}
 
-		// 使用 updateSettings 方法更新设置
 		await this.updateSettings(newSettings);
 	}
 
 	/**
-	 * 通过路径删除特定设置值
-	 * @param path 设置路径
+	 * 按点分路径删除单个设置值。路径不存在时静默返回。
+	 *
+	 * @throws 路径的中间段不存在时抛出。
 	 */
 	async deleteSettingByPath(path: string) {
-		// 创建设置的深拷贝
 		const newSettings = JSON.parse(
 			JSON.stringify(this.#plugin.settings),
 		) as IPluginSettings;
 		const pathParts = path.split(".");
 		let current: unknown = newSettings;
 
-		// 遍历路径，找到父对象
 		for (let i = 0; i < pathParts.length - 1; i++) {
 			const part = pathParts[i];
 			if (
@@ -160,7 +157,6 @@ export default class SettingsStore {
 			}
 		}
 
-		// 删除最终属性
 		const finalPart = pathParts[pathParts.length - 1];
 		if (
 			typeof current === "object" &&
@@ -168,9 +164,7 @@ export default class SettingsStore {
 			finalPart in current
 		) {
 			delete (current as Record<string, unknown>)[finalPart];
-			// 使用 updateSettings 方法更新设置
 			await this.updateSettings(newSettings);
 		}
-		// 如果路径不存在，无需删除，直接返回
 	}
 }
