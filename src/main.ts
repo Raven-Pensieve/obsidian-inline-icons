@@ -21,9 +21,9 @@ import "@styles/styles";
 import { getIconIds, MarkdownView, Plugin, type Editor } from "obsidian";
 
 /**
- * Inline Icons —— 把图标写进笔记正文。
+ * Inline Icons：把图标写进笔记正文。
  *
- * onload 注册的东西对应文档里的两条渲染管线与**四条**输入路径：
+ * {@link onload} 注册的东西对应两条渲染管线与四条输入路径：
  *
  * | 注册项 | 覆盖 |
  * | --- | --- |
@@ -42,14 +42,14 @@ export default class InlineIconsPlugin extends Plugin {
 	/**
 	 * 记号名 → Obsidian 图标 id 的解析器。
 	 *
-	 * 主体只吃公共 `getIconIds()`，所以**没装 Custom Icons 也照常工作**（P1）：
-	 * 它装的用户 SVG（`CI-<id>`）与图标包（`CI-<packId>-<name>`）本来就是普通的
-	 * 全局图标。后两个参数都是跨插件增强，提供方不在场时各自整档消失：
+	 * 主体只吃公共 `getIconIds()`，所以没装 Custom Icons 也照常工作：它装的用户 SVG
+	 * （`CI-<id>`）与图标包（`CI-<packId>-<name>`）本来就是普通的全局图标。后两个
+	 * 参数都是跨插件增强，提供方不在场时各自整档消失：
 	 *
 	 * | 参数 | 作用 | 缺了会怎样 |
 	 * | --- | --- | --- |
-	 * | `hasExtra` | 认出只有 `api.renderTo` 画得出来的那批（Lucide 差集，**不在注册表里**） | 那一档消失，退化成纯注册表查询 |
-	 * | `getPackIcons` | 回答「`icon:mdi:` 该列哪些图标」的**权威成员表** | 退回 `CI-mdi-` 前缀匹配（裸装下本来就没有 `CI-*`） |
+	 * | `hasExtra` | 认出只有 `api.renderTo` 画得出来的那批（Lucide 差集，不在注册表里） | 那一档消失，退化成纯注册表查询 |
+	 * | `getPackIcons` | 回答「`icon:mdi:` 该列哪些图标」的权威成员表 | 退回 `CI-mdi-` 前缀匹配（裸装下本来就没有 `CI-*`） |
 	 *
 	 * 第三个参数不是锦上添花：按前缀筛会把 `mdi-light` 包的图标列进 `icon:mdi:`，
 	 * 也认不出已停用的包，见 `syntax/resolve.ts` 的 `PackIconsProvider`。
@@ -68,27 +68,27 @@ export default class InlineIconsPlugin extends Plugin {
 
 		this.addSettingTab(new PluginSettingTab(this));
 
-		// 两条渲染管线。两个开关都在运行时判断（见各自实现），
-		// 所以用户改设置不必重载插件
+		// 两条渲染管线。两个开关都在运行时判断，所以用户改设置不必重载插件
 		this.registerMarkdownPostProcessor(createPostProcessor(this));
 		this.registerEditorExtension(inlineIconsExtension(this));
 
-		// 前两条输入路径
 		this.registerEditorSuggest(new IconSuggest(this));
+
 		this.addCommand({
 			id: "insert-icon",
 			name: LL.commands.insertIcon.name(),
 			editorCallback: (editor: Editor) => {
-				// 这条**故意只插入**：它是「敲不出触发序列」时的兜底，
-				// 语义要简单可预期。改现有记号走下面那条或右键菜单
+				// 故意只插入：这是「敲不出触发序列」时的兜底，语义要简单可预期。
+				// 改现有记号走下面那条命令或右键菜单
 				new InsertIconModal(this, editor).open();
 			},
 		});
-		// 第三条：借 Custom Icons 的图标选择器（分组网格 + 收藏/最近跨插件共享）。
+
+		// 借 Custom Icons 的图标选择器（分组网格 + 收藏 / 最近跨插件共享）。
 		// 提供方不在场时它退回上面那个模糊搜索，所以命令始终可用。
 		//
-		// **光标落在已有记号里时它是「更换」而不是「插入」**：命令与右键菜单共用
-		// `locateIconTarget`，否则会出现「右键说能改、命令却在旁边插了一个新的」
+		// 光标落在已有记号里时它是「更换」而不是「插入」：命令与右键菜单共用
+		// locateIconTarget，否则会出现「右键说能改、命令却在旁边插了一个新的」
 		this.addCommand({
 			id: "pick-icon",
 			name: LL.commands.pickIcon.name(),
@@ -104,8 +104,9 @@ export default class InlineIconsPlugin extends Plugin {
 				);
 			},
 		});
-		// 第四条：编辑器右键菜单（插入 / 更换 / 移除）
+
 		this.registerEvent(registerEditorMenu(this));
+
 		// 用户自救入口：图标包刚装好、或某处没跟上时手动刷一遍
 		this.addCommand({
 			id: "reapply-icons",
@@ -113,24 +114,24 @@ export default class InlineIconsPlugin extends Plugin {
 			callback: () => this.reapplyIcons(),
 		});
 
-		// 插件集变化（Custom Icons 被启用/禁用）后注册表会变，解析缓存必须作废，
+		// 插件集变化（Custom Icons 被启用 / 禁用）后注册表会变，解析缓存必须作废，
 		// 否则「装上 Custom Icons 却要重启才出图标」。
 		// `app.plugins` 是非官方 API；事件名 `changed` 由 obsidian-typings 的
-		// `Plugins.didChange` 注释确认（Events.on 接受任意字符串，写错了 tsc 不会报）。
+		// `Plugins.didChange` 注释确认（Events.on 接受任意字符串，写错了 tsc 不报）
 		this.registerEvent(
 			this.app.plugins.on("changed", () => this.reapplyIcons()),
 		);
 
 		/*
-		 * 图标集合本身变化（装包 / 卸包 / 启停包 / 增删改 SVG）——**这一条才是关键**。
+		 * 图标集合本身变化（装包 / 卸包 / 启停包 / 增删改 SVG）。
 		 *
-		 * 上面那个 `changed` 只在**插件集**变化时触发，而在 Custom Icons 里删一个 SVG
+		 * 上面那个 `changed` 只在插件集变化时触发，而在 Custom Icons 里删一个 SVG
 		 * 或停用一个包都不会改变插件集。缺了本监听，那份 `getIconIds()` 快照会留在
 		 * 原地，于是：
 		 *
 		 * - 装包 / 加 SVG → 快照里没有新 id，补全列不出来、已写的记号解析失败；
-		 * - 删 SVG / 停用包 → 快照里**还有**那个 id，`resolve()` 报成功而 `setIcon`
-		 *   画不出东西 → **空白 span**。后者绕过了本插件所有的「保留原文」判断，
+		 * - 删 SVG / 停用包 → 快照里还有那个 id，`resolve()` 报成功而 `setIcon`
+		 *   画不出东西，得到一个空白 span。后者绕过了本插件所有的「保留原文」判断，
 		 *   因为它自认为解析成功了。
 		 *
 		 * 提供方的 `onunload` 也会广播一次（那时注册表刚被 removeIcon 清空），
@@ -153,8 +154,8 @@ export default class InlineIconsPlugin extends Plugin {
 	/**
 	 * 作废缓存并让所有已打开的视图重新渲染。
 	 *
-	 * `updateOptions()` 让 CM6 重建装饰；`previewMode.rerender(true)` 重跑阅读模式管线。
-	 * `iterateAllLeaves` 会走到 popout 窗口里的叶子，别换成只看活动视图。
+	 * `updateOptions()` 让 CM6 重建装饰；`previewMode.rerender(true)` 重跑阅读模式
+	 * 管线。`iterateAllLeaves` 会走到 popout 窗口里的叶子，别换成只看活动视图。
 	 */
 	reapplyIcons(): void {
 		this.resolver.invalidate();
@@ -166,7 +167,7 @@ export default class InlineIconsPlugin extends Plugin {
 		});
 	}
 
-	/** 记一次「最近使用」，两条输入路径共用。 */
+	/** 记一次「最近使用」，各条输入路径共用。 */
 	async rememberIcon(iconId: string): Promise<void> {
 		await this.settingsStore.updateSettingByPath(
 			"suggest.recent",

@@ -59,9 +59,7 @@ describe("尺寸", () => {
 		expect(parseModifiers([modifier]).size).toBeNull();
 	});
 
-	it("裸数字仍然不算尺寸：`2` 读不出单位是 em 还是 px", () => {
-		// 原先的理由是「会被切碎的 rgb(1,2,3) 撞上」，括号感知切分后那条压力已经没了，
-		// 但结论不变——写 `2em` 只多两个字符，而 `2` 没有自明含义
+	it("裸数字不算尺寸：`2` 读不出单位是 em 还是 px", () => {
 		expect(parseModifiers(["2"])).toEqual(EMPTY_ICON_STYLE);
 	});
 
@@ -75,16 +73,8 @@ describe("尺寸", () => {
 		expect(styleOf(`icon:sun,${modifier}`).size).toBe(expected);
 	});
 
-	/*
-	 * 函数实参里的**分组括号**。
-	 *
-	 * `calc((1em + 2px) * 2)` 里那对括号是 `calc()` 语法的一部分（先加后乘），
-	 * 而 `callsIn` 曾经要求每个 `(` 前面都有函数名，于是这类合法写法整段被判掉。
-	 * 表现是最难查的那种：修饰符认不出来是**静默忽略**，用户只看到尺寸没生效。
-	 *
-	 * 顶层的裸括号组仍然不认（见「颜色」那张不认表里的 `(1em)`）——
-	 * 放行只发生在函数实参内部。
-	 */
+	// 函数实参内部的分组括号是 CSS 语法的一部分（`calc((1em + 2px) * 2)` 先加后乘），
+	// 必须放行；顶层的裸括号组仍然不认，见「颜色」那张不认表里的 `(1em)`
 	it.each([
 		["先加后乘", "calc((1em + 2px) * 2)"],
 		["clamp 的中项加括号", "clamp(1em, (2vw + 1px), 2em)"],
@@ -161,8 +151,7 @@ describe("颜色", () => {
 		expect(parseModifiers([modifier])).toEqual(EMPTY_ICON_STYLE);
 	});
 
-	it("逗号写法的颜色函数现在能用了（括号感知切分）", () => {
-		// 这是本次改动的核心：过去 `rgb(1,2,3)` 被切成三段，没有一段是合法颜色
+	it("逗号写法的颜色函数（依赖括号感知切分）", () => {
 		expect(styleOf("icon:sun,rgb(1,2,3)").color).toBe("rgb(1,2,3)");
 		expect(styleOf("icon:sun,rgb(255, 0, 0)").color).toBe("rgb(255, 0, 0)");
 		expect(styleOf("icon:sun,hsl(30, 100%, 50%)").color).toBe(
@@ -172,8 +161,7 @@ describe("颜色", () => {
 		expect(styleOf("icon:sun,rgb(1 2 3)").color).toBe("rgb(1 2 3)");
 	});
 
-	it("必须带逗号才能写的那两个函数", () => {
-		// color-mix / light-dark 没有空格写法，所以在旧的裸 split(",") 下根本写不出来
+	it("必须带逗号才能写的那两个函数（没有空格写法）", () => {
 		expect(
 			styleOf("icon:sun,color-mix(in oklch, red 50%, blue)").color,
 		).toBe("color-mix(in oklch, red 50%, blue)");
@@ -225,9 +213,9 @@ describe("组合与容错", () => {
 });
 
 describe("变量消歧（第 ④ 层）", () => {
-	it("名字像尺寸的变量判成尺寸——这是过去那个隐蔽 bug", () => {
-		// 旧实现里 asSize 不认变量、asColor 认，于是尺寸变量被写进 --ii-icon-color，
-		// 浏览器丢掉这个无效颜色 → 图标毫无变化，而记号看起来完全正确
+	it("名字像尺寸的变量判成尺寸", () => {
+		// 判成颜色会被写进 --ii-icon-color，浏览器丢掉这个无效值 → 图标毫无变化，
+		// 而记号看起来完全正确，是最难排查的一类表现
 		expect(parseModifiers(["--icon-l"])).toEqual({
 			color: null,
 			size: "var(--icon-l)",
@@ -245,7 +233,7 @@ describe("变量消歧（第 ④ 层）", () => {
 		expect(classifyModifier("--border-width")).toBe("size");
 	});
 
-	it("其余变量仍然判成颜色（主题用户的主路径，旧行为不变）", () => {
+	it("其余变量判成颜色（主题用户的主路径）", () => {
 		expect(parseModifiers(["--text-accent"])).toEqual({
 			color: "var(--text-accent)",
 			size: null,
@@ -416,10 +404,7 @@ describe("replaceColorModifier", () => {
 		expect(replaceColorModifier(["rebeccapurple"], null)).toEqual([]);
 	});
 
-	it("逗号写法的颜色函数现在认得出来，于是会被正确替换而不是并列留下", () => {
-		// 改动前 `hsl(30, 100%, 50%)` 会被切成三段、三段都认不出，于是
-		// 「换颜色」时它们全部作为「认不出的段」留着，与新颜色并列——
-		// 用户看到的是自己选的色，但记号里堆着一串垃圾
+	it("逗号写法的颜色函数会被整段替换，而不是当成认不出的段并列留下", () => {
 		expect(
 			replaceColorModifier(["hsl(30, 100%, 50%)"], "#123456"),
 		).toEqual(["#123456"]);
@@ -428,9 +413,7 @@ describe("replaceColorModifier", () => {
 		).toEqual(["1.5em"]);
 	});
 
-	it("尺寸变量不再被当成颜色段删掉", () => {
-		// 成因 B 的回归守卫：`--icon-l` 过去判成颜色，于是「重置颜色」会把
-		// 用户的尺寸设定一起删掉
+	it("尺寸变量不算颜色段：「重置颜色」不该连用户的尺寸一起删掉", () => {
 		expect(replaceColorModifier(["--icon-l"], null)).toEqual(["--icon-l"]);
 		expect(replaceColorModifier(["--icon-l"], "#123456")).toEqual([
 			"--icon-l",

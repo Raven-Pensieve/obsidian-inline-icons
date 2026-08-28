@@ -21,8 +21,7 @@ import {
  * - {@link getControlValue} / {@link setControlValue} 负责读写：控件只声明一个
  *   点分路径 `key`，值从哪来、写到哪去由这两个方法决定。
  *
- * **只放用户真的会去改的项**，砍掉的四个及理由见 {@link IPluginSettings}。
- * 也没有「重置全部设置」行：只剩三个项，逐个改回去比弹一次确认框还快。
+ * 项少，所以没有「重置全部设置」行：逐个改回去比弹一次确认框还快。
  */
 export class PluginSettingTab extends ObPluginSettingTab {
 	plugin: InlineIconsPlugin;
@@ -32,8 +31,6 @@ export class PluginSettingTab extends ObPluginSettingTab {
 		super(plugin.app, plugin);
 		this.plugin = plugin;
 	}
-
-	// ==================== 框架入口 ====================
 
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		return [this.syntaxPage(), this.suggestPage()];
@@ -54,8 +51,6 @@ export class PluginSettingTab extends ObPluginSettingTab {
 		this.plugin.onSyntaxChanged();
 		this.refreshDomState();
 	}
-
-	// ==================== 页面（tab） ====================
 
 	/** 语法：只有前缀词一项。 */
 	private syntaxPage(): SettingDefinitionPage {
