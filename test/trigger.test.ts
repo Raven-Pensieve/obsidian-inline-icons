@@ -1,20 +1,18 @@
 import { matchTrigger, type TriggerMatch } from "../src/input/trigger";
+import { splitCaret } from "./caret";
 
 const OPTIONS = { prefix: "icon", alias: "i" };
 
-/** 用 `|` 标出光标位置，省得手数列号。 */
 function at(lineWithCaret: string, options = OPTIONS): TriggerMatch | null {
-	const cursorCh = lineWithCaret.indexOf("|");
-	if (cursorCh < 0) throw new Error("测试用例里要用 | 标出光标位置");
-	const line = lineWithCaret.replace("|", "");
-	return matchTrigger(line, cursorCh, options);
+	const { line, ch } = splitCaret(lineWithCaret);
+	return matchTrigger(line, ch, options);
 }
 
 /** 被替换掉的那一段原文，用来验证 start/end 切得对不对。 */
 function replaced(lineWithCaret: string, options = OPTIONS): string | null {
 	const match = at(lineWithCaret, options);
 	if (match === null) return null;
-	return lineWithCaret.replace("|", "").slice(match.start, match.end);
+	return splitCaret(lineWithCaret).line.slice(match.start, match.end);
 }
 
 describe("正在敲一个新记号", () => {
