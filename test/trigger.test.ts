@@ -24,6 +24,7 @@ describe("正在敲一个新记号", () => {
 			end: 4,
 			source: null,
 			query: "su",
+			modifiers: [],
 		});
 	});
 
@@ -41,6 +42,7 @@ describe("正在敲一个新记号", () => {
 			end: 5,
 			source: null,
 			query: "",
+			modifiers: [],
 		});
 		expect(replaced("今天 icon:| 很好")).toBe("icon:");
 	});
@@ -51,6 +53,7 @@ describe("正在敲一个新记号", () => {
 			end: 2,
 			source: null,
 			query: "",
+			modifiers: [],
 		});
 		expect(replaced("今天 i:| 很好")).toBe("i:");
 		// 敲了字母、或写了来源段自然照弹
@@ -106,6 +109,7 @@ describe("写了来源段", () => {
 			end: 8,
 			source: "ci",
 			query: "",
+			modifiers: [],
 		});
 	});
 
@@ -160,6 +164,7 @@ describe("反引号", () => {
 			end: 15,
 			source: "mdi",
 			query: "home",
+			modifiers: [],
 		});
 		expect(replaced("`icon:m|di:home`")).toBe("`icon:mdi:home`");
 	});
@@ -170,5 +175,40 @@ describe("反引号", () => {
 
 	it("已存在的记号里写了别名形态也认", () => {
 		expect(replaced("`i:su|n`")).toBe("`i:sun`");
+	});
+});
+
+/*
+ * 替换范围覆盖整条记号，所以修饰符必须随命中一起交给调用方，否则
+ * `IconSuggest.selectSuggestion` 整段重写时会把用户写好的颜色与尺寸静默删掉
+ * ——用户的动作只是「换个图标」。右键菜单那条路径靠 `IconEditTarget.token.modifiers`
+ * 早就保住了，补全是四条输入路径里唯一漏掉的一条。
+ */
+describe("修饰符随命中带回（换图标不该吃掉颜色与尺寸）", () => {
+	it("光标落在带修饰符的记号里：原样交回", () => {
+		const match = at("`icon:lucide-s|un,1.5em,#e5a50a`");
+		expect(match?.modifiers).toEqual(["1.5em", "#e5a50a"]);
+		// 区间确实覆盖了那几段——正是它们会被整段替换掉
+		expect(replaced("`icon:lucide-s|un,1.5em,#e5a50a`")).toBe(
+			"`icon:lucide-sun,1.5em,#e5a50a`",
+		);
+	});
+
+	it("认不出的段也带回（可能是将来才支持的写法，或用户笔误）", () => {
+		expect(at("`icon:su|n,1.5em,ならい`")?.modifiers).toEqual([
+			"1.5em",
+			"ならい",
+		]);
+	});
+
+	it("颜色函数里的逗号不被切碎（括号感知切分）", () => {
+		expect(at("`icon:su|n,rgb(255, 0, 0)`")?.modifiers).toEqual([
+			"rgb(255, 0, 0)",
+		]);
+	});
+
+	it("正在敲新记号时是空数组——插入态没有原值可留", () => {
+		expect(at("icon:su|")?.modifiers).toEqual([]);
+		expect(at("`icon:su|`")?.modifiers).toEqual([]);
 	});
 });

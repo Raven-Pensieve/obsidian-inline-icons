@@ -18,6 +18,18 @@ export interface TriggerMatch {
 	source: string | null;
 	/** 供过滤候选用的名字片段，可能是空串（仅当写了来源段时）。 */
 	query: string;
+	/**
+	 * 命中的**已存在记号**里那几段修饰符；正在敲新记号时是空数组。
+	 *
+	 * 存在的理由只有一个：`[start, end)` 在「光标落在已有记号里」那一支**覆盖整条记号**，
+	 * 包括修饰符。补全接着整段替换，若不把这些段带过去，用户写好的
+	 * `` `icon:lucide-sun,1.5em,#e5a50a` `` 一改图标就只剩 `` `icon:lucide-moon` ``
+	 * ——颜色与尺寸被静默吃掉，而用户只是想换个图标。
+	 *
+	 * 右键菜单那条路径本来就带着（`IconEditTarget.token.modifiers`），
+	 * 补全这一支是四条输入路径里唯一漏掉的。
+	 */
+	modifiers: readonly string[];
 }
 
 export interface TriggerOptions {
@@ -97,6 +109,8 @@ function matchInsideSpan(
 		end: located.end,
 		source: located.token.source,
 		query: located.token.name,
+		// 整段替换会覆盖修饰符区，所以必须把它带给调用方原样写回，见 {@link TriggerMatch.modifiers}
+		modifiers: located.token.modifiers,
 	};
 }
 
@@ -126,7 +140,9 @@ function matchWhileTyping(
 	if (line[start - 1] === "`") start -= 1;
 	if (line[end] === "`") end += 1;
 
-	return { start, end, source, query };
+	// 正在敲一个新记号：还没有修饰符可保留（这一支的 `[start, end)` 也不含逗号，
+	// 因为 QUERY_SEGMENT 不认逗号——真有修饰符时命中的是 matchInsideSpan 那一支）
+	return { start, end, source, query, modifiers: [] };
 }
 
 /** 可触发补全的词：正式前缀 + 输入别名；长的排前面，去重。 */

@@ -197,6 +197,51 @@ describe("canReference", () => {
 		expect(canReference(" CI-a")).toBe(false);
 		expect(canReference("")).toBe(false);
 	});
+
+	/*
+	 * 全角冒号：`parseTokenBody` 先把 `：` 折成 `:` 再解析，所以含全角冒号的 id
+	 * 同样引用不了——而它在文件名里完全合法（半角 `:` 在 Windows 上不合法，
+	 * 中文用户存「图标：太阳.svg」很自然），用户 SVG 的 id 恰恰取自文件名。
+	 *
+	 * 漏掉这一条不是「少认一个图标」，而是**写出一条指向别的图标的记号**，见下一个用例。
+	 */
+	it("含全角冒号的 id 也引用不了（parseTokenBody 会把它折成半角）", () => {
+		expect(canReference("CI-图标：太阳")).toBe(false);
+		expect(canReference("CI-a：b")).toBe(false);
+	});
+});
+
+describe("canReference 与 parseTokenBody 的往返一致性", () => {
+	/**
+	 * `canReference(id)` 的**唯一职责**是回答「把这个 id 写进记号，还读得回同一个 id 吗」。
+	 * 所以这条不变量必须成立：判为可引用 → 拼成记号 → 解析回来必须是原样。
+	 *
+	 * 曾经不成立的那一档正是全角冒号：`CI-a：b` 被判可引用，写成
+	 * `` `icon:CI-a：b` ``，回读时 `：` 折成 `:`，于是解析成
+	 * 「来源段 `ci-a` + 名字 `b`」——**指向另一个图标**，而不是解析失败。
+	 * 静默指错比报错严重得多，所以这一条用穷举的方式钉住。
+	 */
+	it.each([
+		"lucide-sun",
+		"CI-我的图标",
+		"CI-my icon",
+		"CI-logo (dark)",
+		// 不配平的括号：id 段照旧裸切第一个逗号，所以它仍能往返
+		"CI-a(",
+		"CI-图标.v2",
+		"CI-a：b",
+		"CI-图标：太阳",
+		"CI-a,b",
+		"CI-a:b",
+		"CI-a`b",
+	])("%s", (id) => {
+		if (!canReference(id)) return; // 判为不可引用即达到目的，不必往返
+		expect(parseTokenBody(formatTokenBody({
+			source: null,
+			name: id,
+			modifiers: [],
+		}))).toEqual({ source: null, name: id, modifiers: [] });
+	});
 });
 
 describe("formatTokenBody / formatCodeSpan", () => {

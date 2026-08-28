@@ -74,6 +74,40 @@ describe("尺寸", () => {
 		// 逗号在括号内，所以这些段能整段抵达本模块（见 grammar.ts 的 splitTopLevel）
 		expect(styleOf(`icon:sun,${modifier}`).size).toBe(expected);
 	});
+
+	/*
+	 * 函数实参里的**分组括号**。
+	 *
+	 * `calc((1em + 2px) * 2)` 里那对括号是 `calc()` 语法的一部分（先加后乘），
+	 * 而 `callsIn` 曾经要求每个 `(` 前面都有函数名，于是这类合法写法整段被判掉。
+	 * 表现是最难查的那种：修饰符认不出来是**静默忽略**，用户只看到尺寸没生效。
+	 *
+	 * 顶层的裸括号组仍然不认（见「颜色」那张不认表里的 `(1em)`）——
+	 * 放行只发生在函数实参内部。
+	 */
+	it.each([
+		["先加后乘", "calc((1em + 2px) * 2)"],
+		["clamp 的中项加括号", "clamp(1em, (2vw + 1px), 2em)"],
+		["min 的实参加括号", "min((1em),2em)"],
+		["嵌套两层分组", "calc(((1em)))"],
+	])("函数实参里的分组括号：%s", (_why, modifier) => {
+		expect(parseModifiers([modifier]).size).toBe(modifier);
+	});
+
+	it("分组括号不绕过函数名白名单", () => {
+		// 分组括号不引入新函数名，所以 url 照样会被收集并拒绝——
+		// 这是放行分组括号时唯一需要担心的事
+		expect(parseModifiers(["calc((url(https://evil/x)))"])).toEqual(
+			EMPTY_ICON_STYLE,
+		);
+		expect(parseModifiers(["(url(https://evil/x))"])).toEqual(
+			EMPTY_ICON_STYLE,
+		);
+		// 空的分组也不认
+		expect(parseModifiers(["calc(())"])).toEqual(EMPTY_ICON_STYLE);
+		// 括号仍然必须配平
+		expect(parseModifiers(["calc((1em)"])).toEqual(EMPTY_ICON_STYLE);
+	});
 });
 
 describe("颜色", () => {
