@@ -235,10 +235,16 @@ function isSafeValue(value: string): boolean {
  *   或者某个 `(` 前面没有函数名（`(1em)` / `a (b)`）。返回空数组表示这段里
  *   没有任何函数调用（`1.5em` / `red` / `#fff`）。
  *
- * 之所以要求「每个 `(` 前面都得有函数名」：裸括号组在 CSS 值里没有意义，
+ * 之所以要求**顶层**的每个 `(` 前面都得有函数名：裸括号组在 CSS 值里没有意义，
  * 而放过它就等于放过一整片没人验证过的形态。旧实现用整段正则
  * `\([^;{}]{1,64}\)` 判颜色函数，`rgb(1 2 3) url(x)` 能整段通过——
  * 现在这种拼接会在函数名白名单处被 `url` 挡掉，而**结构本身**由本函数把住。
+ *
+ * **函数实参内部的分组括号是例外，必须放行**：`calc((1em + 2px) * 2)` 里那对括号
+ * 是 `calc()` 语法的一部分（要先算加法再乘），不是「没人验证过的形态」。
+ * 一律要求前置标识符会把这类合法写法整段判掉，而修饰符认不出来是**静默忽略**的
+ * ——用户只看到尺寸没生效，查不出原因。分组括号不引入任何新函数名，
+ * 所以白名单该挡的仍然挡得住（`calc((url(x)))` 里的 `url` 照样会被收集并拒绝）。
  */
 function callsIn(value: string): string[] | null {
 	const names: string[] = [];
@@ -251,13 +257,17 @@ function callsIn(value: string): string[] | null {
 			// 往前吃掉标识符：函数名允许字母、数字与连字符（`color-mix`、`light-dark`）
 			let start = i;
 			while (start > 0 && /[A-Za-z0-9-]/.test(value[start - 1])) start -= 1;
-			if (start === i) return null;
+			// 没有前置标识符：顶层不认（`(1em)` / `a (b)`），
+			// 函数实参内部则是合法的分组括号（`calc((1em + 2px) * 2)`）
+			if (start === i && depth === 0) return null;
 
-			// 空参一律不认（`var()` / `rgb()`），这是旧实现就有的行为：
-			// 一个没有实参的函数不可能是用户想写的值
+			// 空括号一律不认（`var()` / `rgb()` / `calc(())`）：
+			// 没有实参的函数、以及空的分组，都不可能是用户想写的值
 			if (value.slice(i + 1).trim().startsWith(")")) return null;
 
-			names.push(value.slice(start, i).toLowerCase());
+			// 分组括号不是函数调用，不进名字表——否则会混进一个空字符串，
+			// 让两张白名单的 every() 一律判否
+			if (start !== i) names.push(value.slice(start, i).toLowerCase());
 			depth += 1;
 			continue;
 		}

@@ -147,6 +147,9 @@ export class IconResolver {
 	/** `source|name` → 命中的 id（`null` 表示确认解析不出来，同样要缓存）。 */
 	readonly #cache = new Map<string, string | null>();
 
+	/** 见 {@link revision}。 */
+	#revision = 0;
+
 	/**
 	 * 两个可选依赖都是**跨插件增强**，缺了整档消失而不是报错——这就是 P1
 	 * 「裸装可用」在本模块的落地：只传第一个参数，行为退回纯注册表查询。
@@ -161,11 +164,29 @@ export class IconResolver {
 		this.#getPackIcons = getPackIcons;
 	}
 
+	/**
+	 * 每次 {@link invalidate} 自增。
+	 *
+	 * **给 CM6 用**：实时预览的装饰是缓存在 ViewPlugin 里的，只在 `docChanged` /
+	 * `viewportChanged` / `selectionSet` / 模式切换时重建。图标集合变化（装包、
+	 * 删 SVG、启停 Custom Icons）不产生这四者中的任何一个，于是那份装饰会连同它
+	 * 引用的旧 iconId 一起留在原地——记号该退回原文的没退、该出图标的不出，
+	 * 直到用户碰一下文档才恢复。
+	 *
+	 * `updateOptions()` 只重新配置扩展、并不保证重跑 `buildDecorations`，所以
+	 * ViewPlugin 得有一个自己能比对的标记：把它读进 update 判断即可，
+	 * 见 `render/livePreview.ts`。
+	 */
+	get revision(): number {
+		return this.#revision;
+	}
+
 	/** 丢掉注册表快照与解析缓存。注册表可能变化时都要调。 */
 	invalidate(): void {
 		this.#ids = null;
 		this.#catalogBySource.clear();
 		this.#cache.clear();
+		this.#revision += 1;
 	}
 
 	/** 解析不出来时返回 `null`——调用方必须**保留原文**，不要留白。 */

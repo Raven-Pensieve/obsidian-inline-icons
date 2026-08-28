@@ -49,8 +49,23 @@ class InlineIconsViewPlugin implements PluginValue {
 
 	readonly #plugin: InlineIconsPlugin;
 
+	/**
+	 * 上次构建装饰时的解析器修订号。
+	 *
+	 * **这是「装包后实时预览不跟着变」的修复点。** 下面那四个 CM6 信号都只描述
+	 * *文档/视图* 的变化，而图标集合变化（装包、删 SVG、启停 Custom Icons）一个都不触发：
+	 * `updateOptions()` 会让 CM6 重新配置扩展，但已缓存的 `decorations` 不会因此重算，
+	 * 于是旧装饰连同它引用的旧 iconId 一起留在原地——该退回原文的没退、该出图标的不出，
+	 * 直到用户碰一下文档。
+	 *
+	 * 比对 `resolver.revision` 是最省的补法：它只在 `invalidate()` 时动，
+	 * 而每次动都正好意味着「解析结果可能变了」。
+	 */
+	#revision: number;
+
 	constructor(plugin: InlineIconsPlugin, view: EditorView) {
 		this.#plugin = plugin;
+		this.#revision = plugin.resolver.revision;
 		this.decorations = buildDecorations(plugin, view);
 	}
 
@@ -58,13 +73,16 @@ class InlineIconsViewPlugin implements PluginValue {
 		const modeChanged =
 			update.startState.field(editorLivePreviewField) !==
 			update.state.field(editorLivePreviewField);
+		const revision = this.#plugin.resolver.revision;
 
 		if (
 			update.docChanged ||
 			update.viewportChanged ||
 			update.selectionSet ||
-			modeChanged
+			modeChanged ||
+			revision !== this.#revision
 		) {
+			this.#revision = revision;
 			this.decorations = buildDecorations(this.#plugin, update.view);
 		}
 	}

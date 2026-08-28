@@ -33,6 +33,18 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 	 */
 	#source: string | null = null;
 
+	/**
+	 * 本次触发命中的**已存在记号**里那几段修饰符（正在敲新记号时为空）。
+	 *
+	 * 与 {@link #source} 同一个理由记在这里：`EditorSuggestTriggerInfo` 只带得动
+	 * 一个 `query` 字符串，而 {@link selectSuggestion} 要整段替换 `[start, end)`
+	 * ——那个区间**覆盖修饰符区**。不把它们带过去，用户在
+	 * `` `icon:lucide-sun,1.5em,#e5a50a` `` 里换个图标就只剩 `` `icon:lucide-moon` ``，
+	 * 颜色与尺寸被静默吃掉。右键菜单那条路径靠 `IconEditTarget.token.modifiers`
+	 * 早就保住了，补全是四条输入路径里唯一漏掉的一条。
+	 */
+	#modifiers: readonly string[] = [];
+
 	constructor(plugin: InlineIconsPlugin) {
 		super(plugin.app);
 		this.#plugin = plugin;
@@ -44,6 +56,7 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 		_file: TFile | null,
 	): EditorSuggestTriggerInfo | null {
 		this.#source = null;
+		this.#modifiers = [];
 		if (!this.#plugin.settings.suggest.enabled) return null;
 
 		const { syntax, suggest } = this.#plugin.settings;
@@ -54,6 +67,7 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 		if (match === null) return null;
 
 		this.#source = match.source;
+		this.#modifiers = match.modifiers;
 		return {
 			start: { line: cursor.line, ch: match.start },
 			end: { line: cursor.line, ch: match.end },
@@ -90,6 +104,9 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 	 *
 	 * 即使用户是在 `icon:ci:` / `icon:mdi:` 的列表里挑的，落盘也不带来源段——
 	 * 来源段只是输入期收窄候选池的工具，见 `dev/syntax-spec.md`。
+	 *
+	 * **修饰符原样带回**（{@link #modifiers}）：光标落在已有记号里时那个区间覆盖
+	 * 整条记号，不带回去就等于用户换个图标、颜色和尺寸被静默删掉。
 	 */
 	selectSuggestion(value: IconCandidate): void {
 		const context = this.context;
@@ -98,6 +115,7 @@ export class IconSuggest extends EditorSuggest<IconCandidate> {
 		const text = this.#plugin.resolver.tokenFor(
 			value.id,
 			this.#plugin.grammarOptions,
+			this.#modifiers,
 		);
 
 		context.editor.replaceRange(text, context.start, context.end);
