@@ -1,17 +1,16 @@
 import { locateTokenAt } from "../src/syntax/locate";
+import { splitCaret } from "./caret";
 
 /** 正式前缀 + 输入别名，与运行期一致。 */
 const PREFIXES = ["icon", "i"];
 
-/** 用 `|` 标出光标位置，省得手数列号。 */
 function at(
 	lineWithCaret: string,
 	options?: { includeEdges?: boolean },
 	prefixes: readonly string[] = PREFIXES,
 ) {
-	const ch = lineWithCaret.indexOf("|");
-	if (ch < 0) throw new Error("测试用例里要用 | 标出光标位置");
-	return locateTokenAt(lineWithCaret.replace("|", ""), ch, prefixes, options);
+	const { line, ch } = splitCaret(lineWithCaret);
+	return locateTokenAt(line, ch, prefixes, options);
 }
 
 /** 命中的那一段原文，用来验证 start/end 切得对不对（应当含那对反引号）。 */
@@ -21,9 +20,7 @@ function span(
 ): string | null {
 	const located = at(lineWithCaret, options);
 	if (located === null) return null;
-	return lineWithCaret
-		.replace("|", "")
-		.slice(located.start, located.end);
+	return splitCaret(lineWithCaret).line.slice(located.start, located.end);
 }
 
 describe("基本命中", () => {
